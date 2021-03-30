@@ -4,13 +4,13 @@
 
 #include "naivejson.h"
 #include <assert.h>
+#include <cstdlib>
 
 #define EXPECT(c, ch)   do { assert(*c->json == (ch)); c->json++; } while(0)
 
 struct NaiveContext {
     const char* json;
 };
-
 
 static void naive_parse_whitespace(NaiveContext* context) {
     const char* pJson = context->json;
@@ -46,6 +46,17 @@ static int naive_parse_false(NaiveContext* context, NaiveValue* value) {
     return NAIVE_PARSE_OK;
 }
 
+static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
+    char* end;
+    value->number = strtod(context->json, &end);
+    if (context->json == end)
+        return NAIVE_PARSE_INVALID_VALUE;
+    context->json = end;
+    value->type = NAIVE_NUMBER;
+    return NAIVE_PARSE_OK;
+}
+
+
 static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
     switch (*context->json) {
         case 'n':
@@ -54,10 +65,10 @@ static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
             return naive_parse_true(context, value);
         case 'f':
             return naive_parse_false(context, value);
+        default:
+            return naive_parse_number(context, value);
         case '\0':
             return NAIVE_PARSE_EXPECT_VALUE;
-        default:
-            return NAIVE_PARSE_INVALID_VALUE;
     }
 }
 
@@ -67,10 +78,23 @@ int naive_parse(NaiveValue* value, const char* json) {
     context.json = json;
     value->type = NAIVE_NULL;
     naive_parse_whitespace(&context);
-    return naive_parse_value(&context, value);
+    int ret;
+    if ((ret = naive_parse_value(&context, value)) == NAIVE_PARSE_OK) {
+        naive_parse_whitespace(&context);
+        if (*context.json != '\0') {
+            value->type = NAIVE_NULL;
+            ret = NAIVE_PARSE_ROOT_NOT_SINGULAR;
+        }
+    }
+    return ret;
 }
 
 NaiveType naive_get_type(const NaiveValue* value) {
     assert(value != nullptr);
     return value->type;
+}
+
+double naive_get_number(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_NUMBER);
+    return value->number;
 }

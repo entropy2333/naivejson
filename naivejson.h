@@ -23,10 +23,12 @@ enum {
 };
 
 struct NaiveValue {
+    double number;
     NaiveType type;
 };
 
 NaiveType naive_get_type(const NaiveValue* value);
+double naive_get_number(const NaiveValue* value);
 
 int naive_parse(NaiveValue* value, const char* json);
 
