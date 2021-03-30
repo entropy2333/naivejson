@@ -25,13 +25,59 @@ static int test_pass = 0;
 
 static void test_parse_null() {
     NaiveValue v;
-    v.type = NAIVE_TRUE;
+    v.type = NAIVE_FALSE;
     EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "null"));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));
+}
+
+static void test_parse_true() {
+    NaiveValue v;
+    v.type = NAIVE_FALSE;
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "true"));
+    EXPECT_EQ_INT(NAIVE_TRUE, naive_get_type(&v));
+}
+
+static void test_parse_false() {
+    NaiveValue v;
+    v.type = NAIVE_TRUE;
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "false"));
+    EXPECT_EQ_INT(NAIVE_FALSE, naive_get_type(&v));
+}
+
+static void test_parse_expect_value() {
+    NaiveValue v;
+
+    v.type = NAIVE_FALSE;
+    EXPECT_EQ_INT(NAIVE_PARSE_EXPECT_VALUE, naive_parse(&v, ""));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));
+
+    v.type = NAIVE_FALSE;
+    EXPECT_EQ_INT(NAIVE_PARSE_EXPECT_VALUE, naive_parse(&v, " "));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));
+}
+
+static void test_parse_invalid_value() {
+    NaiveValue v;
+
+    v.type = NAIVE_FALSE;
+    EXPECT_EQ_INT(NAIVE_PARSE_INVALID_VALUE, naive_parse(&v, "nu"));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));
+
+    v.type = NAIVE_FALSE;
+    EXPECT_EQ_INT(NAIVE_PARSE_INVALID_VALUE, naive_parse(&v, "?"));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));
+
+    v.type = NAIVE_FALSE;
+    EXPECT_EQ_INT(NAIVE_PARSE_INVALID_VALUE, naive_parse(&v, " tru e"));
     EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));
 }
 
 static void test_parse() {
     test_parse_null();
+    test_parse_true();
+    test_parse_false();
+    test_parse_expect_value();
+    test_parse_invalid_value();
 }
 
 int main() {
