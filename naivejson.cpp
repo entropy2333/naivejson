@@ -3,55 +3,66 @@
 //
 
 #include "naivejson.h"
-#include <assert.h>
+#include <cassert>
 #include <cstdlib>
+#include <cerrno>
+#include <cmath>
 
-#define EXPECT(c, ch)   do { assert(*c->json == (ch)); c->json++; } while(0)
+#define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
+#define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
+#define ISDIGIT1TO9(ch)     ((ch) >= '1' && (ch) <= '9')
 
 struct NaiveContext {
     const char* json;
 };
 
 static void naive_parse_whitespace(NaiveContext* context) {
-    const char* pJson = context->json;
-    while (*pJson == ' ' || *pJson == '\t' || *pJson == '\n' || *pJson == '\r')
-        pJson++;
-    context->json = pJson;
+    const char* p = context->json;
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
+        p++;
+    context->json = p;
 }
 
-static int naive_parse_null(NaiveContext* context, NaiveValue* value) {
-    EXPECT(context, 'n');
-    if (context->json[0] != 'u' || context->json[1] != 'l' || context->json[2] != 'l')
-        return NAIVE_PARSE_INVALID_VALUE;
-    context->json += 3;
-    value->type = NAIVE_NULL;
-    return NAIVE_PARSE_OK;
-}
-
-static int naive_parse_true(NaiveContext* context, NaiveValue* value) {
-    EXPECT(context, 't');
-    if (context->json[0] != 'r' || context->json[1] != 'u' || context->json[2] != 'e')
-        return NAIVE_PARSE_INVALID_VALUE;
-    context->json += 3;
-    value->type = NAIVE_TRUE;
-    return NAIVE_PARSE_OK;
-}
-
-static int naive_parse_false(NaiveContext* context, NaiveValue* value) {
-    EXPECT(context, 'f');
-    if (context->json[0] != 'a' || context->json[1] != 'l' || context->json[2] != 's' || context->json[3] != 'e')
-        return NAIVE_PARSE_INVALID_VALUE;
-    context->json += 4;
-    value->type = NAIVE_FALSE;
+static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type) {
+    // 与字面值比较，如null、true、false
+    size_t i = 0;
+    EXPECT(context, literal[0]);
+    for (i = 0; literal[i + 1] != '\0'; ++i) {
+        if (context->json[i] != literal[i + 1])
+            return NAIVE_PARSE_INVALID_VALUE;
+    }
+    context->json += i;
+    value->type = type;
     return NAIVE_PARSE_OK;
 }
 
 static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
-    char* end;
-    value->number = strtod(context->json, &end);
-    if (context->json == end)
+    const char* p = context->json;
+    if (*p == '-') p++;
+    if (*p == '0') p++; // 允许有1个0
+    else {
+        if (!ISDIGIT1TO9((*p)))
+            return NAIVE_PARSE_INVALID_VALUE;
+        while(ISDIGIT(*p)) p++;
+    }
+    if (*p == '.') {
+        p++;
+        if (!ISDIGIT((*p)))
+            return NAIVE_PARSE_INVALID_VALUE;
+        while(ISDIGIT(*p)) p++;
+    }
+    if (*p == 'e' || *p == 'E') {
+        p++;
+        if (*p == '+' || *p == '-') p++;
+        if (!ISDIGIT1TO9((*p)))
+            return NAIVE_PARSE_INVALID_VALUE;
+        while(ISDIGIT(*p)) p++;
+    }
+    errno = 0;
+    value->number = strtod(context->json, nullptr);
+    if (errno == ERANGE && (value->number == HUGE_VAL || value->number == -HUGE_VAL))
         return NAIVE_PARSE_INVALID_VALUE;
-    context->json = end;
+    context->json = p;
     value->type = NAIVE_NUMBER;
     return NAIVE_PARSE_OK;
 }
@@ -60,11 +71,11 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
 static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
     switch (*context->json) {
         case 'n':
-            return naive_parse_null(context, value);
+            return naive_parse_literal(context, value, "null", NAIVE_NULL);
         case 't':
-            return naive_parse_true(context, value);
+            return naive_parse_literal(context, value, "true", NAIVE_TRUE);
         case 'f':
-            return naive_parse_false(context, value);
+            return naive_parse_literal(context, value, "false", NAIVE_FALSE);
         default:
             return naive_parse_number(context, value);
         case '\0':
