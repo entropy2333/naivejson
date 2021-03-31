@@ -61,7 +61,7 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     errno = 0;
     value->number = strtod(context->json, nullptr);
     if (errno == ERANGE && (value->number == HUGE_VAL || value->number == -HUGE_VAL))
-        return NAIVE_PARSE_INVALID_VALUE;
+        return NAIVE_NUMBER_TOO_BIG;
     context->json = p;
     value->type = NAIVE_NUMBER;
     return NAIVE_PARSE_OK;
