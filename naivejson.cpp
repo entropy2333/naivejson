@@ -26,7 +26,9 @@ static void naive_parse_whitespace(NaiveContext* context) {
 static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type) {
     // 与字面值比较，如null、true、false
     size_t i = 0;
+    // TODO: why need EXPECT?
     EXPECT(context, literal[0]);
+    // 与字面值逐字符比较
     for (i = 0; literal[i + 1] != '\0'; ++i) {
         if (context->json[i] != literal[i + 1])
             return NAIVE_PARSE_INVALID_VALUE;
@@ -39,6 +41,7 @@ static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const c
 static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     const char* p = context->json;
     if (*p == '-') p++;
+    // TODO: is 002 to 2 ok?
     if (*p == '0') p++; // 允许有1个0
     else {
         if (!ISDIGIT1TO9((*p)))
