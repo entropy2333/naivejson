@@ -1,9 +1,11 @@
 //
-// Created by lenovo on 2021/3/30.
+// Created by entropy2333 on 2021/3/30.
 //
 
 #ifndef NAIVEJSON_H
 #define NAIVEJSON_H
+
+#include <cstddef> // size_t
 
 enum NaiveType {
     NAIVE_NULL = 0,     //!< null
@@ -24,12 +26,32 @@ enum {
 };
 
 struct NaiveValue {
-    double number;
+    union {
+        // string or number
+        struct {
+            char* str;
+            size_t len;
+        };
+        double number;
+    };
     NaiveType type;
 };
 
+#define naive_init(v) do { (v)->type = NAIVE_NULL; } while(0)
+
 NaiveType naive_get_type(const NaiveValue* value);
+
+bool naive_get_boolean(const NaiveValue* value);
+void naive_set_boolean(NaiveValue* value, bool flag);
+
 double naive_get_number(const NaiveValue* value);
+void naive_set_number(NaiveValue* value, double number);
+
+const char* naive_get_string(const NaiveValue* value);
+size_t naive_get_string_length(const NaiveValue* value);
+void naive_set_string(NaiveValue* value, const char* str, size_t len);
+
+void naive_free_string(NaiveValue* value);
 
 int naive_parse(NaiveValue* value, const char* json);
 

@@ -1,5 +1,5 @@
 //
-// Created by lenovo on 2021/3/30.
+// Created by entropy2333 on 2021/3/30.
 //
 
 #include "naivejson.h"
@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cerrno>
 #include <cmath>
+#include <cstring>
 
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
 #define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
@@ -28,7 +29,7 @@ static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const c
     size_t i = 0;
     // TODO: why need EXPECT?
     EXPECT(context, literal[0]);
-    // 与字面值逐字符比较
+    // compared with literal value by character
     for (i = 0; literal[i + 1] != '\0'; ++i) {
         if (context->json[i] != literal[i + 1])
             return NAIVE_PARSE_INVALID_VALUE;
@@ -42,24 +43,24 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     const char* p = context->json;
     if (*p == '-') p++;
     // TODO: is 002 to 2 ok?
-    if (*p == '0') p++; // 允许有1个0
+    if (*p == '0') p++; // single zero is allowed
     else {
         if (!ISDIGIT1TO9((*p)))
             return NAIVE_PARSE_INVALID_VALUE;
-        while(ISDIGIT(*p)) p++;
+        while (ISDIGIT(*p)) p++;
     }
     if (*p == '.') {
         p++;
         if (!ISDIGIT((*p)))
             return NAIVE_PARSE_INVALID_VALUE;
-        while(ISDIGIT(*p)) p++;
+        while (ISDIGIT(*p)) p++;
     }
     if (*p == 'e' || *p == 'E') {
         p++;
         if (*p == '+' || *p == '-') p++;
         if (!ISDIGIT1TO9((*p)))
             return NAIVE_PARSE_INVALID_VALUE;
-        while(ISDIGIT(*p)) p++;
+        while (ISDIGIT(*p)) p++;
     }
     errno = 0;
     value->number = strtod(context->json, nullptr);
@@ -108,7 +109,54 @@ NaiveType naive_get_type(const NaiveValue* value) {
     return value->type;
 }
 
+bool naive_get_boolean(const NaiveValue* value) {
+    assert(value != nullptr && (value->type == NAIVE_TRUE || value->type == NAIVE_FALSE));
+    return value->type == NAIVE_TRUE;
+}
+
+void naive_set_boolean(NaiveValue* value, bool flag) {
+    naive_free_string(value);
+    value->type = flag ? NAIVE_TRUE : NAIVE_FALSE;
+}
+
 double naive_get_number(const NaiveValue* value) {
     assert(value != nullptr && value->type == NAIVE_NUMBER);
     return value->number;
+}
+
+void naive_set_number(NaiveValue* value, double number) {
+    naive_free_string(value);
+    value->number = number;
+    value->type = NAIVE_NUMBER;
+}
+
+const char* naive_get_string(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_STRING);
+    return value->str;
+}
+
+size_t naive_get_string_length(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_STRING);
+    return value->len;
+}
+
+void naive_set_string(NaiveValue* value, const char* str, size_t len) {
+    // check empty string
+    // TODO: why || len == 0
+    assert(value != nullptr && (str != nullptr || len == 0));
+    naive_free_string(value);
+    // string assignment
+    value->str = static_cast<char*>(malloc(len + 1));
+    memcpy(value->str, str, len);
+    value->str[len] = '\0';
+    value->len = len;
+    value->type = NAIVE_STRING;
+}
+
+void naive_free_string(NaiveValue* value) {
+    // called before set
+    assert(value != nullptr);
+    if (value->type == NAIVE_STRING)
+        free(value->str);
+    value->type = NAIVE_NULL;
 }
