@@ -25,7 +25,7 @@ static void naive_parse_whitespace(NaiveContext* context) {
 }
 
 static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type) {
-    // 与字面值比较，如null、true、false
+    // compare with null、true、false
     size_t i = 0;
     // TODO: why need EXPECT?
     EXPECT(context, literal[0]);
@@ -104,6 +104,7 @@ int naive_parse(NaiveValue* value, const char* json) {
     return ret;
 }
 
+// access interface
 NaiveType naive_get_type(const NaiveValue* value) {
     assert(value != nullptr);
     return value->type;
