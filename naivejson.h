@@ -6,6 +6,7 @@
 #define NAIVEJSON_H
 
 #include <cstddef> // size_t
+#include <cassert>
 
 enum NaiveType {
     NAIVE_NULL = 0,     //! null
@@ -38,18 +39,45 @@ struct NaiveValue {
     NaiveType type;
 };
 
-#define naive_init(v) do { (v)->type = NAIVE_NULL; } while(0)
+const int NAIVE_STACK_INIT_SIZE = 256;
+
+struct NaiveContext {
+    const char* json;
+    char* stack;
+    size_t size, top;
+};
+
+inline void naive_init(NaiveValue* value) {
+    value->type = NAIVE_NULL;
+}
+
+inline void EXPECT(NaiveContext* context, char ch) {
+    assert(*context->json == (ch));
+    context->json++;
+}
+
+inline bool ISDIGIT(char ch) {
+    return ((ch) >= '0' && (ch) <= '9');
+}
+
+inline bool ISDIGIT1TO9(char ch) {
+    return ((ch) >= '1' && (ch) <= '9');
+}
 
 NaiveType naive_get_type(const NaiveValue* value);
 
 bool naive_get_boolean(const NaiveValue* value);
+
 void naive_set_boolean(NaiveValue* value, bool flag);
 
 double naive_get_number(const NaiveValue* value);
+
 void naive_set_number(NaiveValue* value, double number);
 
 const char* naive_get_string(const NaiveValue* value);
+
 size_t naive_get_string_length(const NaiveValue* value);
+
 void naive_set_string(NaiveValue* value, const char* str, size_t len);
 
 void naive_free_string(NaiveValue* value);

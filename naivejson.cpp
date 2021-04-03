@@ -3,23 +3,10 @@
 //
 
 #include "naivejson.h"
-#include <cassert>
 #include <cstdlib>
 #include <cerrno>
 #include <cmath>
 #include <cstring>
-
-#define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
-#define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
-#define ISDIGIT1TO9(ch)     ((ch) >= '1' && (ch) <= '9')
-
-const int NAIVE_STACK_INIT_SIZE = 256;
-
-struct NaiveContext {
-    const char* json;
-    char* stack;
-    size_t size, top;
-};
 
 
 // TODO: why return void*?
