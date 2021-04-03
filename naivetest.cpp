@@ -49,6 +49,11 @@ static void test_parse_false() {
     EXPECT_EQ_INT(NAIVE_FALSE, naive_get_type(&v));
 }
 
+static void test_access_boolean() {
+    /* \TODO */
+    /* Use EXPECT_TRUE() and EXPECT_FALSE() */
+}
+
 #define TEST_NUMBER(expect, json)\
     do {\
         NaiveValue v;\
