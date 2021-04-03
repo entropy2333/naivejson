@@ -15,6 +15,7 @@ naive json parser implemented with C++
 - [ ] unicode
 - [ ] array
 - [ ] object
+- [ ] replace macro with inline function
 
 ## Reference
 

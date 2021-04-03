@@ -6,6 +6,25 @@
 #include "naivejson.cpp"
 #include <string>
 
+const char* TYPE_MAP[] = {
+        "NAIVE_NULL",
+        "NAIVE_FALSE",
+        "NAIVE_TRUE",
+        "NAIVE_OBJECT",
+        "NAIVE_ARRAY",
+        "NAIVE_STRING",
+        "NAIVE_NUMBER"
+};
+
+const char* RESULT_MAP[] = {
+        "NAIVE_PARSE_OK",
+        "NAIVE_PARSE_EXPECT_VALUE",
+        "NAIVE_PARSE_INVALID_VALUE",
+        "NAIVE_PARSE_ROOT_NOT_SINGULAR",
+        "NAIVE_NUMBER_TOO_BIG",
+        "NAIVE_PARSE_MISS_QUOTATION_MAR"
+};
+
 static int main_ret = 0;
 static int test_count = 0;
 static int test_pass = 0;
@@ -94,6 +113,21 @@ static void test_parse_number() {
     TEST_NUMBER(-1.7976931348623157e+308, "-1.7976931348623157e+308");
 }
 
+#define TEST_STRING(expect, json)\
+    do {\
+        NaiveValue v;\
+        naive_init(&v);\
+        EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, json));\
+        EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(&v));\
+        EXPECT_EQ_STRING(expect, naive_get_string(&v), naive_get_string_length(&v));\
+        naive_free_string(&v);\
+    } while(0)
+
+
+static void test_parse_string() {
+    TEST_STRING("", "\"\"");
+    TEST_STRING("Hello", "\"Hello\"");
+}
 
 #define TEST_ERROR(error, json)\
     do {\
@@ -175,6 +209,7 @@ static void test_parse() {
     test_parse_true();
     test_parse_false();
     test_parse_number();
+    test_parse_string();
     test_parse_number_too_big();
     test_parse_expect_value();
     test_parse_invalid_value();

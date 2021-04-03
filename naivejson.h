@@ -8,13 +8,13 @@
 #include <cstddef> // size_t
 
 enum NaiveType {
-    NAIVE_NULL = 0,     //!< null
-    NAIVE_FALSE = 1,    //!< false
-    NAIVE_TRUE = 2,     //!< true
-    NAIVE_OBJECT = 3,   //!< object
-    NAIVE_ARRAY = 4,    //!< array
-    NAIVE_STRING = 5,   //!< string
-    NAIVE_NUMBER = 6    //!< number
+    NAIVE_NULL = 0,     //! null
+    NAIVE_FALSE = 1,    //! false
+    NAIVE_TRUE = 2,     //! true
+    NAIVE_OBJECT = 3,   //! object
+    NAIVE_ARRAY = 4,    //! array
+    NAIVE_STRING = 5,   //! string
+    NAIVE_NUMBER = 6    //! number
 };
 
 enum {
@@ -22,7 +22,8 @@ enum {
     NAIVE_PARSE_EXPECT_VALUE,
     NAIVE_PARSE_INVALID_VALUE,
     NAIVE_PARSE_ROOT_NOT_SINGULAR,
-    NAIVE_NUMBER_TOO_BIG
+    NAIVE_NUMBER_TOO_BIG,
+    NAIVE_PARSE_MISS_QUOTATION_MARK
 };
 
 struct NaiveValue {
