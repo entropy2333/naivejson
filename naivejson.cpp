@@ -83,17 +83,50 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     errno = 0;
     value->number = strtod(context->json, nullptr);
     if (errno == ERANGE && (value->number == HUGE_VAL || value->number == -HUGE_VAL))
-        return NAIVE_NUMBER_TOO_BIG;
+        return NAIVE_PARSE_NUMBER_TOO_BIG;
     context->json = p;
     value->type = NAIVE_NUMBER;
     return NAIVE_PARSE_OK;
 }
 
-static inline void PUTC(NaiveContext* context, char ch) {
-    *static_cast<char*>(naive_context_push(context, sizeof(char))) = ch;
+static inline void PUTC(NaiveContext* c, char ch) {
+    *static_cast<char*>(naive_context_push(c, sizeof(char))) = ch;
+}
+
+static const char* naive_parse_hex4(const char* p, unsigned* u) {
+    *u = 0;
+    for (int i = 0; i < 4; ++i) {
+        char ch = *p++;
+        *u <<= 4;
+        if (ch >= '0' && ch <= '9') *u |= ch - '0';
+        else if (ch >= 'A' && ch <= 'F') *u |= ch - ('A' - 10);
+        else if (ch >= 'a' && ch <= 'f') *u |= ch - ('a' - 10);
+        else return nullptr;
+    }
+    return p;
+};
+
+static void naive_encode_utf8(NaiveContext* c, unsigned u) {
+    if (u <= 0x7F)
+        PUTC(c, u & 0xFF);
+    else if (u <= 0x7FF) {
+        PUTC(c, 0xC0 | ((u >> 6) & 0xFF));
+        PUTC(c, 0x80 | (u & 0x3F));
+    } else if (u <= 0xFFFF) {
+        PUTC(c, 0xE0 | ((u >> 12) & 0xFF));
+        PUTC(c, 0x80 | ((u >> 6) & 0x3F));
+        PUTC(c, 0x80 | (u & 0x3F));
+    } else {
+        assert(u <= 0x10FFFF);
+        PUTC(c, 0xF0 | ((u >> 18) & 0xFF));
+        PUTC(c, 0x80 | ((u >> 12) & 0x3F));
+        PUTC(c, 0x80 | ((u >> 6) & 0x3F));
+        PUTC(c, 0x80 | (u & 0x3F));
+    }
 }
 
 static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
+    unsigned unicode1, unicode2;
     size_t len;
     size_t head = context->top;
     EXPECT(context, '\"'); // string starts with "
@@ -109,6 +142,32 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
                 return NAIVE_PARSE_OK;
             case '\\':
                 switch (*p++) {
+                    case 'u': // parse unicode e.g. \u4f60\u597d
+                        if (!(p = naive_parse_hex4(p, &unicode1))) {
+                            context->top = head;
+                            return NAIVE_PARSE_INVALID_UNICODE_HEX;
+                        }
+                        if (unicode1 >= 0xD800 && unicode1 <= 0xDBFF) {
+                            if (*p++ != '\\') {
+                                context->top = head;
+                                return NAIVE_PARSE_INVALID_UNICOCE_SURROGATE;
+                            }
+                            if (*p++ != 'u') {
+                                context->top = head;
+                                return NAIVE_PARSE_INVALID_UNICOCE_SURROGATE;
+                            }
+                            if (!(p = naive_parse_hex4(p, &unicode2))) {
+                                context->top = head;
+                                return NAIVE_PARSE_INVALID_UNICODE_HEX;
+                            }
+                            if (unicode2 < 0xDC00 || unicode2 > 0xDFFF) {
+                                context->top = head;
+                                return NAIVE_PARSE_INVALID_UNICOCE_SURROGATE;
+                            }
+                            unicode1 = (((unicode1 - 0xD800) << 10) | (unicode2 - 0xDC00)) + 0x10000;
+                        }
+                        naive_encode_utf8(context, unicode1);
+                        break;
                     case '\"':
                         PUTC(context, '\"');
                         break;
@@ -139,6 +198,7 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
                 }
                 break;
             case '\0':
+                // TODO: inline function?
                 // reset stack top
                 context->top = head;
                 return NAIVE_PARSE_MISS_QUOTATION_MARK;
