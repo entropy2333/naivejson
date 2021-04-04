@@ -9,13 +9,13 @@
 #include <cassert>
 
 enum NaiveType {
-    NAIVE_NULL = 0,     //! null
-    NAIVE_FALSE = 1,    //! false
-    NAIVE_TRUE = 2,     //! true
-    NAIVE_OBJECT = 3,   //! object
-    NAIVE_ARRAY = 4,    //! array
-    NAIVE_STRING = 5,   //! string
-    NAIVE_NUMBER = 6    //! number
+    NAIVE_NULL = 0, //! null
+    NAIVE_FALSE,    //! false
+    NAIVE_TRUE,     //! true
+    NAIVE_OBJECT,   //! object
+    NAIVE_ARRAY,    //! array
+    NAIVE_STRING,   //! string
+    NAIVE_NUMBER    //! number
 };
 
 enum {
@@ -24,7 +24,9 @@ enum {
     NAIVE_PARSE_INVALID_VALUE,
     NAIVE_PARSE_ROOT_NOT_SINGULAR,
     NAIVE_NUMBER_TOO_BIG,
-    NAIVE_PARSE_MISS_QUOTATION_MARK
+    NAIVE_PARSE_MISS_QUOTATION_MARK,
+    NAIVE_PARSE_INVALID_STRING_ESCAPE,
+    NAIVE_PARSE_INVALID_STRING_CHAR
 };
 
 struct NaiveValue {

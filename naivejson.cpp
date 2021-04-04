@@ -8,7 +8,7 @@
 #include <cmath>
 #include <cstring>
 
-
+// TODO: encapsulate with private function?
 // TODO: why return void*?
 // push value in bytes
 static void* naive_context_push(NaiveContext* context, size_t size) {
@@ -89,6 +89,10 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     return NAIVE_PARSE_OK;
 }
 
+static inline void PUTC(NaiveContext* context, char ch) {
+    *static_cast<char*>(naive_context_push(context, sizeof(char))) = ch;
+}
+
 static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
     size_t len;
     size_t head = context->top;
@@ -96,16 +100,54 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
     const char* p = context->json;
     while (true) {
         char ch = *p++;
-        if (ch == '\"') {
-            len = context->top - head;
-            naive_set_string(value, static_cast<const char*>(naive_context_pop(context, len)), len);
-            context->json = p;
-            return NAIVE_PARSE_OK;
-        } else if (ch == '\0') {
-            context->top = head;
-            return NAIVE_PARSE_MISS_QUOTATION_MARK;
-        } else {
-            *static_cast<char*>(naive_context_push(context, sizeof(char))) = ch;
+        switch (ch) {
+            case '\"':
+                // meet end of string
+                len = context->top - head;
+                naive_set_string(value, static_cast<const char*>(naive_context_pop(context, len)), len);
+                context->json = p;
+                return NAIVE_PARSE_OK;
+            case '\\':
+                switch (*p++) {
+                    case '\"':
+                        PUTC(context, '\"');
+                        break;
+                    case '\\':
+                        PUTC(context, '\\');
+                        break;
+                    case '/':
+                        PUTC(context, '/');
+                        break;
+                    case 'b':
+                        PUTC(context, '\b');
+                        break;
+                    case 'f':
+                        PUTC(context, '\f');
+                        break;
+                    case 'n':
+                        PUTC(context, '\n');
+                        break;
+                    case 'r':
+                        PUTC(context, '\r');
+                        break;
+                    case 't':
+                        PUTC(context, '\t');
+                        break;
+                    default:
+                        context->top = head;
+                        return NAIVE_PARSE_INVALID_STRING_ESCAPE;
+                }
+                break;
+            case '\0':
+                // reset stack top
+                context->top = head;
+                return NAIVE_PARSE_MISS_QUOTATION_MARK;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    context->top = head;
+                    return NAIVE_PARSE_INVALID_STRING_CHAR;
+                }
+                PUTC(context, ch); // assignment
         }
     }
 }

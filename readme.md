@@ -11,7 +11,7 @@ naive json parser implemented with C++
 
 - [x] literal value
 - [x] number
-- [ ] string
+- [x] string
 - [ ] unicode
 - [ ] array
 - [ ] object

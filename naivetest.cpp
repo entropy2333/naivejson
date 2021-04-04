@@ -29,6 +29,7 @@ static int main_ret = 0;
 static int test_count = 0;
 static int test_pass = 0;
 
+// TODO: inline function implement? dynamic type inference?
 #define EXPECT_EQ_BASE(equality, expect, actual, format) \
     do {\
         test_count++;\
@@ -127,7 +128,12 @@ static void test_parse_number() {
 static void test_parse_string() {
     TEST_STRING("", "\"\"");
     TEST_STRING("Hello", "\"Hello\"");
+#if 1
+    TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
+    TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+#endif
 }
+
 
 #define TEST_ERROR(error, json)\
     do {\
@@ -174,6 +180,28 @@ static void test_parse_root_not_singular() {
     TEST_ERROR(NAIVE_PARSE_ROOT_NOT_SINGULAR, "0x123");
 }
 
+
+static void test_parse_missing_quotation_mark() {
+    TEST_ERROR(NAIVE_PARSE_MISS_QUOTATION_MARK, "\"");
+    TEST_ERROR(NAIVE_PARSE_MISS_QUOTATION_MARK, "\"abc");
+}
+
+static void test_parse_invalid_string_escape() {
+#if 1
+    TEST_ERROR(NAIVE_PARSE_INVALID_STRING_ESCAPE, "\"\\v\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_STRING_ESCAPE, "\"\\'\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_STRING_ESCAPE, "\"\\0\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_STRING_ESCAPE, "\"\\x12\"");
+#endif
+}
+
+static void test_parse_invalid_string_char() {
+#if 1
+    TEST_ERROR(NAIVE_PARSE_INVALID_STRING_CHAR, "\"\x01\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
+#endif
+}
+
 static void test_access_bool() {
     NaiveValue v;
     naive_init(&v);
@@ -210,6 +238,8 @@ static void test_parse() {
     test_parse_false();
     test_parse_number();
     test_parse_string();
+    test_parse_invalid_string_escape();
+    test_parse_invalid_string_char();
     test_parse_number_too_big();
     test_parse_expect_value();
     test_parse_invalid_value();
