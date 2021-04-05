@@ -62,7 +62,7 @@ static int test_pass = 0;
         EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, json));\
         EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(&v));\
         EXPECT_EQ_STRING(expect, naive_get_string(&v), naive_get_string_length(&v));\
-        naive_free_string(&v);\
+        naive_free(&v);\
     } while(0)
 #define TEST_ERROR(error, json)\
     do {\
@@ -145,10 +145,40 @@ static void test_parse_array() {
     NaiveValue v;
     naive_init(&v);
 
-    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[ ]"));
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[    ]"));
     EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(&v));
     EXPECT_EQ_SIZE_T(0, naive_get_array_size(&v));
-    naive_free_string(&v);
+    
+    naive_init(&v);
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[ null , false , true , 123 , \"abc\" ]"));
+    EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(&v));
+    EXPECT_EQ_SIZE_T(5, naive_get_array_size(&v));
+    EXPECT_EQ_INT(NAIVE_NULL,   naive_get_type(naive_get_array_element(&v, 0)));
+    EXPECT_EQ_INT(NAIVE_FALSE,  naive_get_type(naive_get_array_element(&v, 1)));
+    EXPECT_EQ_INT(NAIVE_TRUE,   naive_get_type(naive_get_array_element(&v, 2)));
+    EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(naive_get_array_element(&v, 3)));
+    EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(naive_get_array_element(&v, 4)));
+    EXPECT_EQ_DOUBLE(123.0, naive_get_number(naive_get_array_element(&v, 3)));
+    EXPECT_EQ_STRING("abc", naive_get_string(naive_get_array_element(&v, 4)), naive_get_string_length(naive_get_array_element(&v, 4)));
+    naive_free(&v);
+
+#if 1
+    naive_init(&v);
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
+    EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(&v));
+    EXPECT_EQ_SIZE_T(4, naive_get_array_size(&v));
+    for (int i = 0; i < 4; i++) {
+        NaiveValue* a = naive_get_array_element(&v, i);
+        EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(a));
+        EXPECT_EQ_SIZE_T(i, naive_get_array_size(a));
+        for (int j = 0; j < i; j++) {
+            NaiveValue* e = naive_get_array_element(a, j);
+            EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(e));
+            EXPECT_EQ_DOUBLE((double)j, naive_get_number(e));
+        }
+    }
+    naive_free(&v);
+#endif
 }
 
 
@@ -209,6 +239,30 @@ static void test_parse_invalid_string_char() {
 #endif
 }
 
+static void test_parse_invalid_unicode_hex() {
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u0\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u01\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u012\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u/000\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\uG000\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u0/00\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u0G00\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u00/0\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u00G0\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u000/\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u000G\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_HEX, "\"\\u 123\"");
+}
+
+static void test_parse_invalid_unicode_surrogate() {
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uDBFF\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\\\\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uDBFF\"");
+    TEST_ERROR(NAIVE_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"");
+}
+
 static void test_access_bool() {
     NaiveValue v;
     naive_init(&v);
@@ -216,7 +270,7 @@ static void test_access_bool() {
     EXPECT_TRUE(naive_get_boolean(&v));
     naive_set_boolean(&v, false);
     EXPECT_FALSE(naive_get_boolean(&v));
-    naive_free_string(&v);
+    naive_free(&v);
 }
 
 static void test_access_number() {
@@ -226,7 +280,7 @@ static void test_access_number() {
     EXPECT_EQ_DOUBLE(1.0, naive_get_number(&v));
     naive_set_number(&v, -1.3e2);
     EXPECT_EQ_DOUBLE(-1.3e2, naive_get_number(&v));
-    naive_free_string(&v);
+    naive_free(&v);
 }
 
 static void test_access_string() {
@@ -236,7 +290,7 @@ static void test_access_string() {
     EXPECT_EQ_STRING("", naive_get_string(&v), naive_get_string_length(&v));
     naive_set_string(&v, "Hello", 5);
     EXPECT_EQ_STRING("Hello", naive_get_string(&v), naive_get_string_length(&v));
-    naive_free_string(&v);
+    naive_free(&v);
 }
 
 
@@ -244,17 +298,21 @@ static void test_parse() {
     test_parse_null();
     test_parse_true();
     test_parse_false();
+    test_access_bool();
     test_parse_number();
+    test_access_number();
+    test_parse_number_too_big();
+
     test_parse_string();
-    test_parse_array();
+    test_access_string();
     test_parse_invalid_string_escape();
     test_parse_invalid_string_char();
-    test_parse_number_too_big();
+    test_parse_invalid_unicode_hex();
+
+    test_parse_array();
     test_parse_expect_value();
     test_parse_invalid_value();
-    test_access_bool();
-    test_access_number();
-    test_access_string();
+
 }
 
 int main() {

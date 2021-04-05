@@ -28,7 +28,7 @@ enum {
     NAIVE_PARSE_INVALID_STRING_ESCAPE,
     NAIVE_PARSE_INVALID_STRING_CHAR,
     NAIVE_PARSE_INVALID_UNICODE_HEX,
-    NAIVE_PARSE_INVALID_UNICOCE_SURROGATE,
+    NAIVE_PARSE_INVALID_UNICODE_SURROGATE,
     NAIVE_PARSE_MISS_COMMA_OR_BRACKET
 };
 
@@ -91,7 +91,7 @@ size_t naive_get_string_length(const NaiveValue* value);
 
 void naive_set_string(NaiveValue* value, const char* str, size_t len);
 
-void naive_free_string(NaiveValue* value);
+void naive_free(NaiveValue* value);
 
 size_t naive_get_array_size(const NaiveValue* value);
 

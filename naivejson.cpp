@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstring>
+//#include <iostream>
 
 static inline void PUTC(NaiveContext* c, char ch);
 
@@ -34,6 +35,7 @@ static int naive_parse_value(NaiveContext* context, NaiveValue* value);
 // TODO: why return void*?
 // push value in bytes
 static void* naive_context_push(NaiveContext* context, size_t size) {
+//    std::cout << "push: " << context->top << ' ' << size << std::endl;
     void* ret;
     assert(size > 0);
     if (context->top + size >= context->size) {
@@ -53,6 +55,7 @@ static void* naive_context_push(NaiveContext* context, size_t size) {
 }
 
 static void* naive_context_pop(NaiveContext* context, size_t size) {
+//    std::cout << "pop: " << context->top << ' ' << size << std::endl;
     assert(context->top >= size);
     return context->stack + (context->top -= size);
 }
@@ -172,11 +175,11 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
                         if (unicode1 >= 0xD800 && unicode1 <= 0xDBFF) {
                             if (*p++ != '\\') {
                                 context->top = head;
-                                return NAIVE_PARSE_INVALID_UNICOCE_SURROGATE;
+                                return NAIVE_PARSE_INVALID_UNICODE_SURROGATE;
                             }
                             if (*p++ != 'u') {
                                 context->top = head;
-                                return NAIVE_PARSE_INVALID_UNICOCE_SURROGATE;
+                                return NAIVE_PARSE_INVALID_UNICODE_SURROGATE;
                             }
                             if (!(p = naive_parse_hex4(p, &unicode2))) {
                                 context->top = head;
@@ -184,7 +187,7 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
                             }
                             if (unicode2 < 0xDC00 || unicode2 > 0xDFFF) {
                                 context->top = head;
-                                return NAIVE_PARSE_INVALID_UNICOCE_SURROGATE;
+                                return NAIVE_PARSE_INVALID_UNICODE_SURROGATE;
                             }
                             unicode1 = (((unicode1 - 0xD800) << 10) | (unicode2 - 0xDC00)) + 0x10000;
                         }
@@ -235,6 +238,7 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
 }
 
 static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
+    size_t arrlen = 0;
     size_t size = 0;
     int ret = 0;
     EXPECT(context, '[');
@@ -250,25 +254,33 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
     while (true) {
         NaiveValue element;
         naive_init(&element);
-        if ((ret = naive_parse_value(context, &element)) != NAIVE_PARSE_OK)
-            return ret;
+        if ((ret = naive_parse_value(context, &element)) != NAIVE_PARSE_OK) {
+            break;
+        }
         memcpy(naive_context_push(context, sizeof(NaiveValue)), &element, sizeof(NaiveValue));
-        size++;
+        arrlen++;
+
         naive_parse_whitespace(context);
-        if (*context->json == ',')
+        if (*context->json == ',') {
             context->json++;
-        else if (*context->json == ']') {
+            naive_parse_whitespace(context);
+        } else if (*context->json == ']') {
             context->json++;
             value->type = NAIVE_ARRAY;
-            value->arrlen = size;
-            size *= sizeof(NaiveValue);
+            value->arrlen = arrlen;
+            size = arrlen * sizeof(NaiveValue);
             value->arr = static_cast<NaiveValue*>(malloc(size));
             memcpy(value->arr, naive_context_pop(context, size), size);
             return NAIVE_PARSE_OK;
         } else {
-            return NAIVE_PARSE_MISS_COMMA_OR_BRACKET;
+            ret = NAIVE_PARSE_MISS_COMMA_OR_BRACKET;
+            break;
         }
     }
+    for (size_t i = 0; i < arrlen; i++) {
+        free(static_cast<NaiveValue*>(naive_context_pop(context, sizeof(NaiveValue))));
+    }
+    return ret;
 }
 
 
@@ -324,7 +336,7 @@ bool naive_get_boolean(const NaiveValue* value) {
 }
 
 void naive_set_boolean(NaiveValue* value, bool flag) {
-    naive_free_string(value);
+    naive_free(value);
     value->type = flag ? NAIVE_TRUE : NAIVE_FALSE;
 }
 
@@ -334,7 +346,7 @@ double naive_get_number(const NaiveValue* value) {
 }
 
 void naive_set_number(NaiveValue* value, double number) {
-    naive_free_string(value);
+    naive_free(value);
     value->number = number;
     value->type = NAIVE_NUMBER;
 }
@@ -353,7 +365,7 @@ void naive_set_string(NaiveValue* value, const char* str, size_t len) {
     // check empty string
     // TODO: why || len == 0
     assert(value != nullptr && (str != nullptr || len == 0));
-    naive_free_string(value);
+    naive_free(value);
     // string assignment
     value->str = static_cast<char*>(malloc(len + 1));
     memcpy(value->str, str, len);
@@ -362,11 +374,22 @@ void naive_set_string(NaiveValue* value, const char* str, size_t len) {
     value->type = NAIVE_STRING;
 }
 
-void naive_free_string(NaiveValue* value) {
+void naive_free(NaiveValue* value) {
     // called before set
     assert(value != nullptr);
-    if (value->type == NAIVE_STRING)
-        free(value->str);
+    switch (value->type) {
+        case NAIVE_STRING:
+            free(value->str);
+            break;
+        case NAIVE_ARRAY:
+            for (size_t i = 0; i < value->arrlen; i++) {
+                naive_free(&value->arr[i]);
+            }
+            free(value->arr);
+            break;
+        default:
+            break;
+    }
     value->type = NAIVE_NULL;
 }
 
