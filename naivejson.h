@@ -28,15 +28,22 @@ enum {
     NAIVE_PARSE_INVALID_STRING_ESCAPE,
     NAIVE_PARSE_INVALID_STRING_CHAR,
     NAIVE_PARSE_INVALID_UNICODE_HEX,
-    NAIVE_PARSE_INVALID_UNICOCE_SURROGATE
+    NAIVE_PARSE_INVALID_UNICOCE_SURROGATE,
+    NAIVE_PARSE_MISS_COMMA_OR_BRACKET
 };
+
+struct NaiveValue;
+struct NaiveContext;
 
 struct NaiveValue {
     union {
-        // string or number
+        struct {
+            NaiveValue* arr;
+            size_t arrlen; // element count
+        };
         struct {
             char* str;
-            size_t len;
+            size_t strlen;
         };
         double number;
     };
@@ -85,6 +92,10 @@ size_t naive_get_string_length(const NaiveValue* value);
 void naive_set_string(NaiveValue* value, const char* str, size_t len);
 
 void naive_free_string(NaiveValue* value);
+
+size_t naive_get_array_size(const NaiveValue* value);
+
+NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index);
 
 int naive_parse(NaiveValue* value, const char* json);
 

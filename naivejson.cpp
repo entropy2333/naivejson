@@ -8,6 +8,28 @@
 #include <cmath>
 #include <cstring>
 
+static inline void PUTC(NaiveContext* c, char ch);
+
+static void* naive_context_push(NaiveContext* context, size_t size);
+
+static void* naive_context_pop(NaiveContext* context, size_t size);
+
+static void naive_parse_whitespace(NaiveContext* context);
+
+static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type);
+
+static int naive_parse_number(NaiveContext* context, NaiveValue* value);
+
+static const char* naive_parse_hex4(const char* p, unsigned* u);
+
+static void naive_encode_utf8(NaiveContext* c, unsigned u);
+
+static int naive_parse_string(NaiveContext* context, NaiveValue* value);
+
+static int naive_parse_array(NaiveContext* context, NaiveValue* value);
+
+static int naive_parse_value(NaiveContext* context, NaiveValue* value);
+
 // TODO: encapsulate with private function?
 // TODO: why return void*?
 // push value in bytes
@@ -212,6 +234,43 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
     }
 }
 
+static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
+    size_t size = 0;
+    int ret = 0;
+    EXPECT(context, '[');
+    naive_parse_whitespace(context);
+    // meet end of array
+    if (*context->json == ']') {
+        context->json++;
+        value->type = NAIVE_ARRAY;
+        value->arrlen = 0;
+        value->arr = nullptr;
+        return NAIVE_PARSE_OK;
+    }
+    while (true) {
+        NaiveValue element;
+        naive_init(&element);
+        if ((ret = naive_parse_value(context, &element)) != NAIVE_PARSE_OK)
+            return ret;
+        memcpy(naive_context_push(context, sizeof(NaiveValue)), &element, sizeof(NaiveValue));
+        size++;
+        naive_parse_whitespace(context);
+        if (*context->json == ',')
+            context->json++;
+        else if (*context->json == ']') {
+            context->json++;
+            value->type = NAIVE_ARRAY;
+            value->arrlen = size;
+            size *= sizeof(NaiveValue);
+            value->arr = static_cast<NaiveValue*>(malloc(size));
+            memcpy(value->arr, naive_context_pop(context, size), size);
+            return NAIVE_PARSE_OK;
+        } else {
+            return NAIVE_PARSE_MISS_COMMA_OR_BRACKET;
+        }
+    }
+}
+
 
 static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
     switch (*context->json) {
@@ -223,6 +282,8 @@ static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
             return naive_parse_literal(context, value, "false", NAIVE_FALSE);
         case '"':
             return naive_parse_string(context, value);
+        case '[':
+            return naive_parse_array(context, value);
         default:
             return naive_parse_number(context, value);
         case '\0':
@@ -285,7 +346,7 @@ const char* naive_get_string(const NaiveValue* value) {
 
 size_t naive_get_string_length(const NaiveValue* value) {
     assert(value != nullptr && value->type == NAIVE_STRING);
-    return value->len;
+    return value->strlen;
 }
 
 void naive_set_string(NaiveValue* value, const char* str, size_t len) {
@@ -297,7 +358,7 @@ void naive_set_string(NaiveValue* value, const char* str, size_t len) {
     value->str = static_cast<char*>(malloc(len + 1));
     memcpy(value->str, str, len);
     value->str[len] = '\0';
-    value->len = len;
+    value->strlen = len;
     value->type = NAIVE_STRING;
 }
 
@@ -307,4 +368,15 @@ void naive_free_string(NaiveValue* value) {
     if (value->type == NAIVE_STRING)
         free(value->str);
     value->type = NAIVE_NULL;
+}
+
+size_t naive_get_array_size(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    return value->arrlen;
+}
+
+NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    assert(index < value->arrlen);
+    return &value->arr[index];
 }

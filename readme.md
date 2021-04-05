@@ -6,6 +6,8 @@ naive json parser implemented with C++
 
 - learn and practice C++
 - learn about Test-Driven Development (TDD)
+- implement of recursive descent parser
+- how to design API
 
 ## Todo
 

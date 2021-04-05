@@ -30,7 +30,7 @@ static int test_count = 0;
 static int test_pass = 0;
 
 // TODO: inline function implement? dynamic type inference?
-#define EXPECT_EQ_BASE(equality, expect, actual, format) \
+#define EXPECT_EQ_BASE(equality, expect, actual, format)\
     do {\
         test_count++;\
         if (equality)\
@@ -40,13 +40,38 @@ static int test_pass = 0;
             main_ret = 1;\
         }\
     } while(0)
-
 #define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%d")
+#define EXPECT_EQ_SIZE_T(expect, actual)\
+    EXPECT_EQ_BASE((expect) == (actual), static_cast<size_t>(expect), static_cast<size_t>(actual), "%zu")
 #define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect) == (actual), expect, actual, "%.17g")
-#define EXPECT_EQ_STRING(expect, actual, alength) \
+#define EXPECT_EQ_STRING(expect, actual, alength)\
     EXPECT_EQ_BASE(sizeof(expect) - 1 == alength && memcmp(expect, actual, alength) == 0, expect, actual, "%s")
 #define EXPECT_TRUE(actual) EXPECT_EQ_BASE((actual) != 0, "true", "false", "%s")
 #define EXPECT_FALSE(actual) EXPECT_EQ_BASE((actual) == 0, "false", "true", "%s")
+#define TEST_NUMBER(expect, json)\
+    do {\
+        NaiveValue v;\
+        EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, json));\
+        EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(&v));\
+        EXPECT_EQ_DOUBLE(expect, naive_get_number(&v));\
+    } while(0)
+#define TEST_STRING(expect, json)\
+    do {\
+        NaiveValue v;\
+        naive_init(&v);\
+        EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, json));\
+        EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(&v));\
+        EXPECT_EQ_STRING(expect, naive_get_string(&v), naive_get_string_length(&v));\
+        naive_free_string(&v);\
+    } while(0)
+#define TEST_ERROR(error, json)\
+    do {\
+        NaiveValue v;\
+        v.type = NAIVE_FALSE;\
+        EXPECT_EQ_INT(error, naive_parse(&v, json));\
+        EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));\
+    } while(0)
+
 
 static void test_parse_null() {
     NaiveValue v;
@@ -69,13 +94,6 @@ static void test_parse_false() {
     EXPECT_EQ_INT(NAIVE_FALSE, naive_get_type(&v));
 }
 
-#define TEST_NUMBER(expect, json)\
-    do {\
-        NaiveValue v;\
-        EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, json));\
-        EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(&v));\
-        EXPECT_EQ_DOUBLE(expect, naive_get_number(&v));\
-    } while(0)
 
 static void test_parse_number() {
     TEST_NUMBER(0.0, "0");
@@ -109,16 +127,6 @@ static void test_parse_number() {
     TEST_NUMBER(-1.7976931348623157e+308, "-1.7976931348623157e+308");
 }
 
-#define TEST_STRING(expect, json)\
-    do {\
-        NaiveValue v;\
-        naive_init(&v);\
-        EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, json));\
-        EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(&v));\
-        EXPECT_EQ_STRING(expect, naive_get_string(&v), naive_get_string_length(&v));\
-        naive_free_string(&v);\
-    } while(0)
-
 
 static void test_parse_string() {
     TEST_STRING("", "\"\"");
@@ -133,13 +141,16 @@ static void test_parse_string() {
 }
 
 
-#define TEST_ERROR(error, json)\
-    do {\
-        NaiveValue v;\
-        v.type = NAIVE_FALSE;\
-        EXPECT_EQ_INT(error, naive_parse(&v, json));\
-        EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v));\
-    } while(0)
+static void test_parse_array() {
+    NaiveValue v;
+    naive_init(&v);
+
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[ ]"));
+    EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(&v));
+    EXPECT_EQ_SIZE_T(0, naive_get_array_size(&v));
+    naive_free_string(&v);
+}
+
 
 static void test_parse_expect_value() {
     TEST_ERROR(NAIVE_PARSE_EXPECT_VALUE, "");
@@ -228,12 +239,14 @@ static void test_access_string() {
     naive_free_string(&v);
 }
 
+
 static void test_parse() {
     test_parse_null();
     test_parse_true();
     test_parse_false();
     test_parse_number();
     test_parse_string();
+    test_parse_array();
     test_parse_invalid_string_escape();
     test_parse_invalid_string_char();
     test_parse_number_too_big();
