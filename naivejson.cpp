@@ -282,7 +282,7 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
             memcpy(value->arr, naive_context_pop(context, size), size);
             return NAIVE_PARSE_OK;
         } else {
-            ret = NAIVE_PARSE_MISS_COMMA_OR_BRACKET;
+            ret = NAIVE_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
             break;
         }
     }
@@ -306,38 +306,69 @@ static int naive_parse_object(NaiveContext* context, NaiveValue* value) {
         value->map = nullptr;
         return NAIVE_PARSE_OK;
     }
-    /*
+    NaiveMember member;
+    member.key = nullptr;
+    member.keylen = 0;
     while (true) {
         // TODO: element could be a dangling pointer
-        NaiveValue member;
-        naive_init(&member);
-        if ((ret = naive_parse_value(context, &member)) != NAIVE_PARSE_OK) {
+        char* str;
+        naive_init(&member.value);
+        // 1. parse key
+        if (*context->json != '"') {
+            ret = NAIVE_PARSE_MISS_KEY;
             break;
         }
-        memcpy(naive_context_push(context, sizeof(NaiveValue)), &member, sizeof(NaiveValue));
-        maplen++;
+        if ((ret = naive_parse_string_raw(context, &str, &member.keylen)) != NAIVE_PARSE_OK) {
+            break;
+        }
+        member.key = static_cast<char*>(malloc(member.keylen + 1));
+        memcpy(member.key, str, member.keylen);
+        member.key[member.keylen] = '\0';
 
+        // 2. parse colon
+        naive_parse_whitespace(context);
+        if (*context->json != ':') {
+            ret = NAIVE_PARSE_MISS_COLON;
+            break;
+        }
+        context->json++;
+        naive_parse_whitespace(context);
+
+        // 3. parse value
+        if ((ret = naive_parse_value(context, &member.value)) != NAIVE_PARSE_OK) {
+            break;
+        }
+        memcpy(naive_context_push(context, sizeof(NaiveMember)), &member, sizeof(NaiveMember));
+        maplen++;
+        member.key = nullptr;
+
+        // 4. parse comma or right-curly-bracket
         naive_parse_whitespace(context);
         if (*context->json == ',') {
             context->json++;
             naive_parse_whitespace(context);
-        } else if (*context->json == ']') {
+        } else if (*context->json == '}') {
             context->json++;
-            value->type = NAIVE_ARRAY;
-            value->arrlen = maplen;
-            size = maplen * sizeof(NaiveValue);
-            value->arr = static_cast<NaiveValue*>(malloc(size));
-            memcpy(value->arr, naive_context_pop(context, size), size);
+            value->type = NAIVE_OBJECT;
+            value->maplen = maplen;
+            size = maplen * sizeof(NaiveMember);
+            value->map = static_cast<NaiveMember*>(malloc(size));
+            memcpy(value->map, naive_context_pop(context, size), size);
             return NAIVE_PARSE_OK;
         } else {
-            ret = NAIVE_PARSE_MISS_COMMA_OR_BRACKET;
+            ret = NAIVE_PARSE_MISS_COMMA_OR_CURLY_BRACKET;
             break;
         }
     }
-    */
-//    for (size_t i = 0; i < maplen; i++) {
-//        free(static_cast<NaiveValue*>(naive_context_pop(context, sizeof(NaiveValue))));
-//    }
+
+    // 5. pop and free members on the stack
+    free(member.key);
+    for (size_t i = 0; i < maplen; i++) {
+        NaiveMember* m = static_cast<NaiveMember*>(naive_context_pop(context, sizeof(NaiveMember)));
+        free(m->key);
+        naive_free(&m->value);
+    }
+    value->type = NAIVE_NULL;
     return ret;
 }
 
@@ -446,6 +477,13 @@ void naive_free(NaiveValue* value) {
             }
             free(value->arr);
             break;
+        case NAIVE_OBJECT:
+            for (size_t i = 0; i < value->maplen; i++) {
+                free(value->map[i].key);
+                naive_free(&value->map[i].value);
+            }
+            free(value->map);
+            break;
         default:
             break;
     }
@@ -474,7 +512,7 @@ const char* naive_get_object_key(const NaiveValue* value, size_t index) {
     return value->map[index].key;
 }
 
-size_t naive_get_key_length(const NaiveValue* value, size_t index) {
+size_t naive_get_object_key_length(const NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     assert(index < value->maplen);
     return value->map[index].keylen;
@@ -483,5 +521,5 @@ size_t naive_get_key_length(const NaiveValue* value, size_t index) {
 NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     assert(index < value->maplen);
-    return value->map[index].value;
+    return &value->map[index].value;
 }

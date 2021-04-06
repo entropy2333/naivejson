@@ -29,7 +29,10 @@ enum {
     NAIVE_PARSE_INVALID_STRING_CHAR,
     NAIVE_PARSE_INVALID_UNICODE_HEX,
     NAIVE_PARSE_INVALID_UNICODE_SURROGATE,
-    NAIVE_PARSE_MISS_COMMA_OR_BRACKET
+    NAIVE_PARSE_MISS_COMMA_OR_SQUARE_BRACKET,
+    NAIVE_PARSE_MISS_KEY,
+    NAIVE_PARSE_MISS_COLON,
+    NAIVE_PARSE_MISS_COMMA_OR_CURLY_BRACKET
 };
 
 struct NaiveValue;
@@ -58,7 +61,7 @@ struct NaiveValue {
 
 struct NaiveMember {
     char* key;
-    NaiveValue* value;
+    NaiveValue value;
     size_t keylen;
 };
 
@@ -113,7 +116,7 @@ size_t naive_get_object_size(const NaiveValue* value);
 
 const char* naive_get_object_key(const NaiveValue* value, size_t index);
 
-size_t naive_get_key_length(const NaiveValue* value, size_t index);
+size_t naive_get_object_key_length(const NaiveValue* value, size_t index);
 
 NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 
