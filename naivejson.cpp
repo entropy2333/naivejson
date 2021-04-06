@@ -150,9 +150,8 @@ static void naive_encode_utf8(NaiveContext* c, unsigned u) {
     }
 }
 
-static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
+static int naive_parse_string_raw(NaiveContext* context, char** str, size_t* len) {
     unsigned unicode1, unicode2;
-    size_t len;
     size_t head = context->top;
     EXPECT(context, '\"'); // string starts with "
     const char* p = context->json;
@@ -161,8 +160,8 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
         switch (ch) {
             case '\"':
                 // meet end of string
-                len = context->top - head;
-                naive_set_string(value, static_cast<const char*>(naive_context_pop(context, len)), len);
+                *len = context->top - head;
+                *str = static_cast<char*>(naive_context_pop(context, *len));
                 context->json = p;
                 return NAIVE_PARSE_OK;
             case '\\':
@@ -237,6 +236,15 @@ static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
     }
 }
 
+static int naive_parse_string(NaiveContext* context, NaiveValue* value) {
+    int ret = 0;
+    size_t len = 0;
+    char* str;
+    if ((ret = naive_parse_string_raw(context, &str, &len)) == NAIVE_PARSE_OK)
+        naive_set_string(value, str, len);
+    return ret;
+}
+
 static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
     size_t arrlen = 0;
     size_t size = 0;
@@ -252,6 +260,7 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
         return NAIVE_PARSE_OK;
     }
     while (true) {
+        // TODO: element could be a dangling pointer
         NaiveValue element;
         naive_init(&element);
         if ((ret = naive_parse_value(context, &element)) != NAIVE_PARSE_OK) {
@@ -283,6 +292,54 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
     return ret;
 }
 
+static int naive_parse_object(NaiveContext* context, NaiveValue* value) {
+    size_t maplen = 0;
+    size_t size = 0;
+    int ret = 0;
+    EXPECT(context, '{');
+    naive_parse_whitespace(context);
+    // meet end of object
+    if (*context->json == '}') {
+        context->json++;
+        value->type = NAIVE_OBJECT;
+        value->maplen = 0;
+        value->map = nullptr;
+        return NAIVE_PARSE_OK;
+    }
+    /*
+    while (true) {
+        // TODO: element could be a dangling pointer
+        NaiveValue member;
+        naive_init(&member);
+        if ((ret = naive_parse_value(context, &member)) != NAIVE_PARSE_OK) {
+            break;
+        }
+        memcpy(naive_context_push(context, sizeof(NaiveValue)), &member, sizeof(NaiveValue));
+        maplen++;
+
+        naive_parse_whitespace(context);
+        if (*context->json == ',') {
+            context->json++;
+            naive_parse_whitespace(context);
+        } else if (*context->json == ']') {
+            context->json++;
+            value->type = NAIVE_ARRAY;
+            value->arrlen = maplen;
+            size = maplen * sizeof(NaiveValue);
+            value->arr = static_cast<NaiveValue*>(malloc(size));
+            memcpy(value->arr, naive_context_pop(context, size), size);
+            return NAIVE_PARSE_OK;
+        } else {
+            ret = NAIVE_PARSE_MISS_COMMA_OR_BRACKET;
+            break;
+        }
+    }
+    */
+//    for (size_t i = 0; i < maplen; i++) {
+//        free(static_cast<NaiveValue*>(naive_context_pop(context, sizeof(NaiveValue))));
+//    }
+    return ret;
+}
 
 static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
     switch (*context->json) {
@@ -296,6 +353,8 @@ static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
             return naive_parse_string(context, value);
         case '[':
             return naive_parse_array(context, value);
+        case '{':
+            return naive_parse_object(context, value);
         default:
             return naive_parse_number(context, value);
         case '\0':
@@ -402,4 +461,27 @@ NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_ARRAY);
     assert(index < value->arrlen);
     return &value->arr[index];
+}
+
+size_t naive_get_object_size(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    return value->maplen;
+}
+
+const char* naive_get_object_key(const NaiveValue* value, size_t index) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    assert(index < value->maplen);
+    return value->map[index].key;
+}
+
+size_t naive_get_key_length(const NaiveValue* value, size_t index) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    assert(index < value->maplen);
+    return value->map[index].keylen;
+}
+
+NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    assert(index < value->maplen);
+    return value->map[index].value;
 }

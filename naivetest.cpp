@@ -148,18 +148,19 @@ static void test_parse_array() {
     EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[    ]"));
     EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(&v));
     EXPECT_EQ_SIZE_T(0, naive_get_array_size(&v));
-    
+
     naive_init(&v);
     EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, "[ null , false , true , 123 , \"abc\" ]"));
     EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(&v));
     EXPECT_EQ_SIZE_T(5, naive_get_array_size(&v));
-    EXPECT_EQ_INT(NAIVE_NULL,   naive_get_type(naive_get_array_element(&v, 0)));
-    EXPECT_EQ_INT(NAIVE_FALSE,  naive_get_type(naive_get_array_element(&v, 1)));
-    EXPECT_EQ_INT(NAIVE_TRUE,   naive_get_type(naive_get_array_element(&v, 2)));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(naive_get_array_element(&v, 0)));
+    EXPECT_EQ_INT(NAIVE_FALSE, naive_get_type(naive_get_array_element(&v, 1)));
+    EXPECT_EQ_INT(NAIVE_TRUE, naive_get_type(naive_get_array_element(&v, 2)));
     EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(naive_get_array_element(&v, 3)));
     EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(naive_get_array_element(&v, 4)));
     EXPECT_EQ_DOUBLE(123.0, naive_get_number(naive_get_array_element(&v, 3)));
-    EXPECT_EQ_STRING("abc", naive_get_string(naive_get_array_element(&v, 4)), naive_get_string_length(naive_get_array_element(&v, 4)));
+    EXPECT_EQ_STRING("abc", naive_get_string(naive_get_array_element(&v, 4)),
+                     naive_get_string_length(naive_get_array_element(&v, 4)));
     naive_free(&v);
 
 #if 1
@@ -174,10 +175,71 @@ static void test_parse_array() {
         for (int j = 0; j < i; j++) {
             NaiveValue* e = naive_get_array_element(a, j);
             EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(e));
-            EXPECT_EQ_DOUBLE((double)j, naive_get_number(e));
+            EXPECT_EQ_DOUBLE((double) j, naive_get_number(e));
         }
     }
     naive_free(&v);
+#endif
+}
+
+static void test_parse_object() {
+    NaiveValue v;
+    size_t i;
+
+    naive_init(&v);
+    EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v, " { } "));
+    EXPECT_EQ_INT(NAIVE_OBJECT, naive_get_type(&v));
+    EXPECT_EQ_SIZE_T(0, naive_get_object_size(&v));
+    naive_free(&v);
+
+#if 0
+    lept_init(&v);
+    EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v,
+                                            " { "
+                                            "\"n\" : null , "
+                                            "\"f\" : false , "
+                                            "\"t\" : true , "
+                                            "\"i\" : 123 , "
+                                            "\"s\" : \"abc\", "
+                                            "\"a\" : [ 1, 2, 3 ],"
+                                            "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
+                                            " } "
+    ));
+    EXPECT_EQ_INT(LEPT_OBJECT, lept_get_type(&v));
+    EXPECT_EQ_SIZE_T(7, lept_get_object_size(&v));
+    EXPECT_EQ_STRING("n", lept_get_object_key(&v, 0), lept_get_object_key_length(&v, 0));
+    EXPECT_EQ_INT(LEPT_NULL,   lept_get_type(lept_get_object_value(&v, 0)));
+    EXPECT_EQ_STRING("f", lept_get_object_key(&v, 1), lept_get_object_key_length(&v, 1));
+    EXPECT_EQ_INT(LEPT_FALSE,  lept_get_type(lept_get_object_value(&v, 1)));
+    EXPECT_EQ_STRING("t", lept_get_object_key(&v, 2), lept_get_object_key_length(&v, 2));
+    EXPECT_EQ_INT(LEPT_TRUE,   lept_get_type(lept_get_object_value(&v, 2)));
+    EXPECT_EQ_STRING("i", lept_get_object_key(&v, 3), lept_get_object_key_length(&v, 3));
+    EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_object_value(&v, 3)));
+    EXPECT_EQ_DOUBLE(123.0, lept_get_number(lept_get_object_value(&v, 3)));
+    EXPECT_EQ_STRING("s", lept_get_object_key(&v, 4), lept_get_object_key_length(&v, 4));
+    EXPECT_EQ_INT(LEPT_STRING, lept_get_type(lept_get_object_value(&v, 4)));
+    EXPECT_EQ_STRING("abc", lept_get_string(lept_get_object_value(&v, 4)), lept_get_string_length(lept_get_object_value(&v, 4)));
+    EXPECT_EQ_STRING("a", lept_get_object_key(&v, 5), lept_get_object_key_length(&v, 5));
+    EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(lept_get_object_value(&v, 5)));
+    EXPECT_EQ_SIZE_T(3, lept_get_array_size(lept_get_object_value(&v, 5)));
+    for (i = 0; i < 3; i++) {
+        lept_value* e = lept_get_array_element(lept_get_object_value(&v, 5), i);
+        EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(e));
+        EXPECT_EQ_DOUBLE(i + 1.0, lept_get_number(e));
+    }
+    EXPECT_EQ_STRING("o", lept_get_object_key(&v, 6), lept_get_object_key_length(&v, 6));
+    {
+        lept_value* o = lept_get_object_value(&v, 6);
+        EXPECT_EQ_INT(LEPT_OBJECT, lept_get_type(o));
+        for (i = 0; i < 3; i++) {
+            lept_value* ov = lept_get_object_value(o, i);
+            EXPECT_TRUE('1' + i == lept_get_object_key(o, i)[0]);
+            EXPECT_EQ_SIZE_T(1, lept_get_object_key_length(o, i));
+            EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(ov));
+            EXPECT_EQ_DOUBLE(i + 1.0, lept_get_number(ov));
+        }
+    }
+    lept_free(&v);
 #endif
 }
 
@@ -310,6 +372,8 @@ static void test_parse() {
     test_parse_invalid_unicode_hex();
 
     test_parse_array();
+    test_parse_object();
+
     test_parse_expect_value();
     test_parse_invalid_value();
 

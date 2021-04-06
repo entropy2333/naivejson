@@ -33,21 +33,33 @@ enum {
 };
 
 struct NaiveValue;
+struct NaiveMember;
 struct NaiveContext;
 
 struct NaiveValue {
     union {
+        double number;
+        struct {
+            char* str;
+            size_t strlen;
+        };
         struct {
             NaiveValue* arr;
             size_t arrlen; // element count
         };
         struct {
-            char* str;
-            size_t strlen;
+            NaiveMember* map;
+            size_t maplen;
         };
-        double number;
+
     };
     NaiveType type;
+};
+
+struct NaiveMember {
+    char* key;
+    NaiveValue* value;
+    size_t keylen;
 };
 
 const int NAIVE_STACK_INIT_SIZE = 256;
@@ -96,6 +108,14 @@ void naive_free(NaiveValue* value);
 size_t naive_get_array_size(const NaiveValue* value);
 
 NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index);
+
+size_t naive_get_object_size(const NaiveValue* value);
+
+const char* naive_get_object_key(const NaiveValue* value, size_t index);
+
+size_t naive_get_key_length(const NaiveValue* value, size_t index);
+
+NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 
 int naive_parse(NaiveValue* value, const char* json);
 
