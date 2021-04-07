@@ -3,6 +3,8 @@
 # Custom files
 rapidjson/
 testRapidJson.cpp
+cmake-build-debug/
+.idea
 
 # Prerequisites
 *.d

@@ -2,7 +2,6 @@
 // Created by entropy2333 on 2021/3/30.
 //
 
-//#include "naivejson.h"
 #define _WINDOWS
 #ifdef _WINDOWS
 #define _CRTDBG_MAP_ALLOC
@@ -11,7 +10,7 @@
 
 #endif
 
-#include "naivejson.cpp"
+#include "naivejson.h"
 #include <string>
 
 

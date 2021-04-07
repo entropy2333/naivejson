@@ -31,9 +31,13 @@ static const char* naive_parse_hex4(const char* p, unsigned* u);
 
 static void naive_encode_utf8(NaiveContext* c, unsigned u);
 
+static int naive_parse_string_raw(NaiveContext* context, char** str, size_t* len);
+
 static int naive_parse_string(NaiveContext* context, NaiveValue* value);
 
 static int naive_parse_array(NaiveContext* context, NaiveValue* value);
+
+static int naive_parse_object(NaiveContext* context, NaiveValue* value);
 
 static int naive_parse_value(NaiveContext* context, NaiveValue* value);
 
