@@ -1,6 +1,12 @@
 //
 // Created by entropy2333 on 2021/3/30.
 //
+#ifdef WIN32
+#define _CRTDBG_MAP_ALLOC
+
+#include <crtdbg.h>
+
+#endif
 
 #include "naivejson.h"
 #include <cstdlib>

@@ -3,8 +3,17 @@
 //
 
 //#include "naivejson.h"
+#define _WINDOWS
+#ifdef _WINDOWS
+#define _CRTDBG_MAP_ALLOC
+
+#include <crtdbg.h>
+
+#endif
+
 #include "naivejson.cpp"
 #include <string>
+
 
 const char* TYPE_MAP[] = {
         "NAIVE_NULL",
@@ -195,30 +204,31 @@ static void test_parse_object() {
 #if 1
     naive_init(&v);
     EXPECT_EQ_INT(NAIVE_PARSE_OK, naive_parse(&v,
-                                            " { "
-                                            "\"n\" : null , "
-                                            "\"f\" : false , "
-                                            "\"t\" : true , "
-                                            "\"i\" : 123 , "
-                                            "\"s\" : \"abc\", "
-                                            "\"a\" : [ 1, 2, 3 ],"
-                                            "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
-                                            " } "
+                                              " { "
+                                              "\"n\" : null , "
+                                              "\"f\" : false , "
+                                              "\"t\" : true , "
+                                              "\"i\" : 123 , "
+                                              "\"s\" : \"abc\", "
+                                              "\"a\" : [ 1, 2, 3 ],"
+                                              "\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"
+                                              " } "
     ));
     EXPECT_EQ_INT(NAIVE_OBJECT, naive_get_type(&v));
     EXPECT_EQ_SIZE_T(7, naive_get_object_size(&v));
     EXPECT_EQ_STRING("n", naive_get_object_key(&v, 0), naive_get_object_key_length(&v, 0));
-    EXPECT_EQ_INT(NAIVE_NULL,   naive_get_type(naive_get_object_value(&v, 0)));
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(naive_get_object_value(&v, 0)));
     EXPECT_EQ_STRING("f", naive_get_object_key(&v, 1), naive_get_object_key_length(&v, 1));
-    EXPECT_EQ_INT(NAIVE_FALSE,  naive_get_type(naive_get_object_value(&v, 1)));
+    EXPECT_EQ_INT(NAIVE_FALSE, naive_get_type(naive_get_object_value(&v, 1)));
     EXPECT_EQ_STRING("t", naive_get_object_key(&v, 2), naive_get_object_key_length(&v, 2));
-    EXPECT_EQ_INT(NAIVE_TRUE,   naive_get_type(naive_get_object_value(&v, 2)));
+    EXPECT_EQ_INT(NAIVE_TRUE, naive_get_type(naive_get_object_value(&v, 2)));
     EXPECT_EQ_STRING("i", naive_get_object_key(&v, 3), naive_get_object_key_length(&v, 3));
     EXPECT_EQ_INT(NAIVE_NUMBER, naive_get_type(naive_get_object_value(&v, 3)));
     EXPECT_EQ_DOUBLE(123.0, naive_get_number(naive_get_object_value(&v, 3)));
     EXPECT_EQ_STRING("s", naive_get_object_key(&v, 4), naive_get_object_key_length(&v, 4));
     EXPECT_EQ_INT(NAIVE_STRING, naive_get_type(naive_get_object_value(&v, 4)));
-    EXPECT_EQ_STRING("abc", naive_get_string(naive_get_object_value(&v, 4)), naive_get_string_length(naive_get_object_value(&v, 4)));
+    EXPECT_EQ_STRING("abc", naive_get_string(naive_get_object_value(&v, 4)),
+                     naive_get_string_length(naive_get_object_value(&v, 4)));
     EXPECT_EQ_STRING("a", naive_get_object_key(&v, 5), naive_get_object_key_length(&v, 5));
     EXPECT_EQ_INT(NAIVE_ARRAY, naive_get_type(naive_get_object_value(&v, 5)));
     EXPECT_EQ_SIZE_T(3, naive_get_array_size(naive_get_object_value(&v, 5)));
@@ -360,13 +370,10 @@ static void test_parse() {
     test_parse_null();
     test_parse_true();
     test_parse_false();
-    test_access_bool();
     test_parse_number();
-    test_access_number();
     test_parse_number_too_big();
 
     test_parse_string();
-    test_access_string();
     test_parse_invalid_string_escape();
     test_parse_invalid_string_char();
     test_parse_invalid_unicode_hex();
@@ -379,8 +386,22 @@ static void test_parse() {
 
 }
 
+static void test_access() {
+//    test_access_null();
+    test_access_bool();
+    test_access_number();
+    test_access_string();
+}
+
 int main() {
+#ifdef _WINDOWS
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
     test_parse();
+    test_access();
     printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
+#ifdef _WINDOWS
+    _CrtDumpMemoryLeaks();
+#endif
     return 0;
 }
