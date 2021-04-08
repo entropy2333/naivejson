@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cerrno>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 //#include <iostream>
 
@@ -126,6 +127,10 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
 
 static inline void PUTC(NaiveContext* c, char ch) {
     *static_cast<char*>(naive_context_push(c, sizeof(char))) = ch;
+}
+
+static inline void PUTS(NaiveContext* context, char* s, size_t len) {
+    memcpy(naive_context_push(context, len), s, len);
 }
 
 static const char* naive_parse_hex4(const char* p, unsigned* u) {
@@ -532,4 +537,68 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     assert(index < value->maplen);
     return &value->map[index].value;
+}
+
+static int naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
+    return NAIVE_STRINGIFY_OK;
+}
+
+static int naive_stringify_value(NaiveContext* context, const NaiveValue* value) {
+    switch (value->type) {
+        case NAIVE_NULL:
+            PUTS(context, "null", 4);
+            break;
+        case NAIVE_TRUE:
+            PUTS(context, "true", 4);
+        case NAIVE_FALSE:
+            PUTS(context, "false", 5);
+        case NAIVE_NUMBER:
+            context->top -= 32 - sprintf(static_cast<char*>(naive_context_push(context, 32)), "%.17g", value->number);
+            break;
+        case NAIVE_STRING:
+            naive_stringify_string(context, value->str, value->strlen);
+            break;
+        case NAIVE_ARRAY:
+            PUTC(context, '[');
+            for (size_t i = 0; i < value->arrlen; ++i) {
+                if (i > 0)
+                    PUTC(context, ',');
+                naive_stringify_value(context, &value->arr[i]);
+            }
+            PUTC(context, ']');
+            break;
+        case NAIVE_OBJECT:
+            PUTC(context, '{');
+            for (size_t j = 0; j < value->maplen; ++j) {
+                if (j > 0)
+                    PUTC(context, ',');
+                naive_stringify_string(context, value->map[j].key, value->map[j].keylen);
+                PUTC(context, ':');
+                naive_stringify_value(context, &value->map[j].value);
+            }
+            PUTC(context, '}');
+        // TODO: raise error
+        default: assert(0 && "invalid type");
+    }
+    return NAIVE_STRINGIFY_OK;
+}
+
+int naive_stringify(const NaiveValue* value, char** json, size_t* len) {
+    NaiveContext context;
+    int ret;
+    assert(value != nullptr);
+    assert(json != nullptr);
+    context.size = NAIVE_PARSE_STRINGIFY_INI_SIZE;
+    context.stack = static_cast<char*>(malloc(context.size));
+    context.top = 0;
+    if ((ret = naive_stringify_value(&context, value)) != NAIVE_STRINGIFY_OK) {
+        free(context.stack);
+        *json = nullptr;
+        return ret;
+    }
+    if (len)
+        *len = context.top;
+    PUTC(&context, '\0');
+    *json = context.stack;
+    return NAIVE_STRINGIFY_OK;
 }

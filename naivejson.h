@@ -32,7 +32,8 @@ enum {
     NAIVE_PARSE_MISS_COMMA_OR_SQUARE_BRACKET,
     NAIVE_PARSE_MISS_KEY,
     NAIVE_PARSE_MISS_COLON,
-    NAIVE_PARSE_MISS_COMMA_OR_CURLY_BRACKET
+    NAIVE_PARSE_MISS_COMMA_OR_CURLY_BRACKET,
+    NAIVE_STRINGIFY_OK
 };
 
 struct NaiveValue;
@@ -66,6 +67,7 @@ struct NaiveMember {
 };
 
 const int NAIVE_STACK_INIT_SIZE = 256;
+const int NAIVE_PARSE_STRINGIFY_INI_SIZE = 256;
 
 struct NaiveContext {
     const char* json;
@@ -121,5 +123,7 @@ size_t naive_get_object_key_length(const NaiveValue* value, size_t index);
 NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 
 int naive_parse(NaiveValue* value, const char* json);
+
+int naive_stringify(const NaiveValue* value, char** json, size_t* len);
 
 #endif //NAIVEJSON_H

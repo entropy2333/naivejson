@@ -2,7 +2,6 @@
 // Created by entropy2333 on 2021/3/30.
 //
 
-#define _WINDOWS
 #ifdef _WINDOWS
 #define _CRTDBG_MAP_ALLOC
 
