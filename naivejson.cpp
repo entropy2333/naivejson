@@ -6,47 +6,18 @@
 
 #include <crtdbg.h>
 
+#ifdef _DEBUG
+#define new  new(_NORMAL_BLOCK, __FILE__, __LINE__)
+#endif
+
 #endif
 
 #include "naivejson.h"
-#include <cstdlib>
-#include <cerrno>
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-//#include <iostream>
-
-static inline void PUTC(NaiveContext* c, char ch);
-
-static void* naive_context_push(NaiveContext* context, size_t size);
-
-static void* naive_context_pop(NaiveContext* context, size_t size);
-
-static void naive_parse_whitespace(NaiveContext* context);
-
-static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type);
-
-static int naive_parse_number(NaiveContext* context, NaiveValue* value);
-
-static const char* naive_parse_hex4(const char* p, unsigned* u);
-
-static void naive_encode_utf8(NaiveContext* c, unsigned u);
-
-static int naive_parse_string_raw(NaiveContext* context, char** str, size_t* len);
-
-static int naive_parse_string(NaiveContext* context, NaiveValue* value);
-
-static int naive_parse_array(NaiveContext* context, NaiveValue* value);
-
-static int naive_parse_object(NaiveContext* context, NaiveValue* value);
-
-static int naive_parse_value(NaiveContext* context, NaiveValue* value);
 
 // TODO: encapsulate with private function?
 // TODO: why return void*?
 // push value in bytes
 static void* naive_context_push(NaiveContext* context, size_t size) {
-//    std::cout << "push: " << context->top << ' ' << size << std::endl;
     void* ret;
     assert(size > 0);
     if (context->top + size >= context->size) {
@@ -66,7 +37,6 @@ static void* naive_context_push(NaiveContext* context, size_t size) {
 }
 
 static void* naive_context_pop(NaiveContext* context, size_t size) {
-//    std::cout << "pop: " << context->top << ' ' << size << std::endl;
     assert(context->top >= size);
     return context->stack + (context->top -= size);
 }
@@ -76,6 +46,53 @@ static void naive_parse_whitespace(NaiveContext* context) {
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
         p++;
     context->json = p;
+}
+
+int naive_parse(NaiveValue* value, const char* json) {
+    NaiveContext context;
+    assert(value != nullptr);
+    context.json = json;
+    context.stack = nullptr;
+    context.size = context.top = 0;
+    naive_init(value);
+    naive_parse_whitespace(&context);
+    int ret;
+    if ((ret = naive_parse_value(&context, value)) == NAIVE_PARSE_OK) {
+        naive_parse_whitespace(&context);
+        if (*context.json != '\0') {
+            value->type = NAIVE_NULL;
+            ret = NAIVE_PARSE_ROOT_NOT_SINGULAR;
+        }
+    }
+    assert(context.top == 0);
+    free(context.stack);
+    return ret;
+}
+
+void naive_free(NaiveValue* value) {
+    // called before set
+    assert(value != nullptr);
+    switch (value->type) {
+        case NAIVE_STRING:
+            free(value->str);
+            break;
+        case NAIVE_ARRAY:
+            for (size_t i = 0; i < value->arrlen; i++) {
+                naive_free(&value->arr[i]);
+            }
+            free(value->arr);
+            break;
+        case NAIVE_OBJECT:
+            for (size_t i = 0; i < value->maplen; i++) {
+                free(value->map[i].key);
+                naive_free(&value->map[i].value);
+            }
+            free(value->map);
+            break;
+        default:
+            break;
+    }
+    value->type = NAIVE_NULL;
 }
 
 static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type) {
@@ -96,7 +113,7 @@ static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const c
 static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     const char* p = context->json;
     if (*p == '-') p++;
-    // TODO: is 002 to 2 ok?
+    // 002 is invalid input: root_not_singular
     if (*p == '0') p++; // single zero is allowed
     else {
         if (!ISDIGIT1TO9((*p)))
@@ -123,14 +140,6 @@ static int naive_parse_number(NaiveContext* context, NaiveValue* value) {
     context->json = p;
     value->type = NAIVE_NUMBER;
     return NAIVE_PARSE_OK;
-}
-
-static inline void PUTC(NaiveContext* c, char ch) {
-    *static_cast<char*>(naive_context_push(c, sizeof(char))) = ch;
-}
-
-static inline void PUTS(NaiveContext* context, char* s, size_t len) {
-    memcpy(naive_context_push(context, len), s, len);
 }
 
 static const char* naive_parse_hex4(const char* p, unsigned* u) {
@@ -302,7 +311,8 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
         }
     }
     for (size_t i = 0; i < arrlen; i++) {
-        free(static_cast<NaiveValue*>(naive_context_pop(context, sizeof(NaiveValue))));
+        // FIXME: free->naive_free
+        naive_free(static_cast<NaiveValue*>(naive_context_pop(context, sizeof(NaiveValue))));
     }
     return ret;
 }
@@ -408,31 +418,15 @@ static int naive_parse_value(NaiveContext* context, NaiveValue* value) {
     }
 }
 
-int naive_parse(NaiveValue* value, const char* json) {
-    NaiveContext context;
-    assert(value != nullptr);
-    context.json = json;
-    context.stack = nullptr;
-    context.size = context.top = 0;
-    naive_init(value);
-    naive_parse_whitespace(&context);
-    int ret;
-    if ((ret = naive_parse_value(&context, value)) == NAIVE_PARSE_OK) {
-        naive_parse_whitespace(&context);
-        if (*context.json != '\0') {
-            value->type = NAIVE_NULL;
-            ret = NAIVE_PARSE_ROOT_NOT_SINGULAR;
-        }
-    }
-    assert(context.top == 0);
-    free(context.stack);
-    return ret;
-}
-
 // access interface
 NaiveType naive_get_type(const NaiveValue* value) {
     assert(value != nullptr);
     return value->type;
+}
+
+void naive_set_null(NaiveValue* value) {
+    naive_free(value);
+    value->type = NAIVE_NULL;
 }
 
 bool naive_get_boolean(const NaiveValue* value) {
@@ -477,32 +471,6 @@ void naive_set_string(NaiveValue* value, const char* str, size_t len) {
     value->str[len] = '\0';
     value->strlen = len;
     value->type = NAIVE_STRING;
-}
-
-void naive_free(NaiveValue* value) {
-    // called before set
-    assert(value != nullptr);
-    switch (value->type) {
-        case NAIVE_STRING:
-            free(value->str);
-            break;
-        case NAIVE_ARRAY:
-            for (size_t i = 0; i < value->arrlen; i++) {
-                naive_free(&value->arr[i]);
-            }
-            free(value->arr);
-            break;
-        case NAIVE_OBJECT:
-            for (size_t i = 0; i < value->maplen; i++) {
-                free(value->map[i].key);
-                naive_free(&value->map[i].value);
-            }
-            free(value->map);
-            break;
-        default:
-            break;
-    }
-    value->type = NAIVE_NULL;
 }
 
 size_t naive_get_array_size(const NaiveValue* value) {
