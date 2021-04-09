@@ -1,7 +1,7 @@
 //
 // Created by entropy2333 on 2021/3/30.
 //
-#ifdef WIN32
+#ifdef _WINDOWS
 #define _CRTDBG_MAP_ALLOC
 
 #include <crtdbg.h>
@@ -539,19 +539,72 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index) {
     return &value->map[index].value;
 }
 
-static int naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
-    return NAIVE_STRINGIFY_OK;
+static void naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
+    static const char hex_digits[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    size_t size;
+    char* head, * p;
+    assert(str != NULL);
+    // pre alloc space
+    p = head = static_cast<char*>(naive_context_push(context, size = len * 6 + 2)); /* "\u00xx..." */
+    *p++ = '"';
+    for (size_t i = 0; i < len; i++) {
+        unsigned char ch = static_cast<unsigned char >(str[i]);
+        switch (ch) {
+            case '\"':
+                *p++ = '\\';
+                *p++ = '\"';
+                break;
+            case '\\':
+                *p++ = '\\';
+                *p++ = '\\';
+                break;
+            case '\b':
+                *p++ = '\\';
+                *p++ = 'b';
+                break;
+            case '\f':
+                *p++ = '\\';
+                *p++ = 'f';
+                break;
+            case '\n':
+                *p++ = '\\';
+                *p++ = 'n';
+                break;
+            case '\r':
+                *p++ = '\\';
+                *p++ = 'r';
+                break;
+            case '\t':
+                *p++ = '\\';
+                *p++ = 't';
+                break;
+            default:
+                if (ch < 0x20) {
+                    *p++ = '\\';
+                    *p++ = 'u';
+                    *p++ = '0';
+                    *p++ = '0';
+                    *p++ = hex_digits[ch >> 4];
+                    *p++ = hex_digits[ch & 15];
+                } else
+                    *p++ = str[i];
+        }
+    }
+    *p++ = '"';
+    context->top -= size - (p - head);
 }
 
-static int naive_stringify_value(NaiveContext* context, const NaiveValue* value) {
+static void naive_stringify_value(NaiveContext* context, const NaiveValue* value) {
     switch (value->type) {
         case NAIVE_NULL:
             PUTS(context, "null", 4);
             break;
         case NAIVE_TRUE:
             PUTS(context, "true", 4);
+            break;
         case NAIVE_FALSE:
             PUTS(context, "false", 5);
+            break;
         case NAIVE_NUMBER:
             context->top -= 32 - sprintf(static_cast<char*>(naive_context_push(context, 32)), "%.17g", value->number);
             break;
@@ -577,28 +630,22 @@ static int naive_stringify_value(NaiveContext* context, const NaiveValue* value)
                 naive_stringify_value(context, &value->map[j].value);
             }
             PUTC(context, '}');
-        // TODO: raise error
-        default: assert(0 && "invalid type");
+            break;
+            // TODO: raise error
+        default:
+            assert(0 && "invalid type");
     }
-    return NAIVE_STRINGIFY_OK;
 }
 
-int naive_stringify(const NaiveValue* value, char** json, size_t* len) {
+char* naive_stringify(const NaiveValue* value, size_t* len) {
     NaiveContext context;
-    int ret;
     assert(value != nullptr);
-    assert(json != nullptr);
     context.size = NAIVE_PARSE_STRINGIFY_INI_SIZE;
     context.stack = static_cast<char*>(malloc(context.size));
     context.top = 0;
-    if ((ret = naive_stringify_value(&context, value)) != NAIVE_STRINGIFY_OK) {
-        free(context.stack);
-        *json = nullptr;
-        return ret;
-    }
+    naive_stringify_value(&context, value);
     if (len)
         *len = context.top;
     PUTC(&context, '\0');
-    *json = context.stack;
-    return NAIVE_STRINGIFY_OK;
+    return context.stack;
 }

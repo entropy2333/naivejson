@@ -124,6 +124,6 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 
 int naive_parse(NaiveValue* value, const char* json);
 
-int naive_stringify(const NaiveValue* value, char** json, size_t* len);
+char* naive_stringify(const NaiveValue* value, size_t* len);
 
 #endif //NAIVEJSON_H
