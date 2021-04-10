@@ -15,7 +15,7 @@
 #include "naivejson.h"
 
 // TODO: encapsulate with private function?
-// TODO: why return void*?
+// void* return value can be cast to any type
 // push value in bytes
 static void* naive_context_push(NaiveContext* context, size_t size) {
     void* ret;
@@ -311,7 +311,7 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
         }
     }
     for (size_t i = 0; i < arrlen; i++) {
-        // FIXME: free->naive_free
+        // FIX: free->naive_free
         naive_free(static_cast<NaiveValue*>(naive_context_pop(context, sizeof(NaiveValue))));
     }
     return ret;
@@ -462,7 +462,7 @@ size_t naive_get_string_length(const NaiveValue* value) {
 
 void naive_set_string(NaiveValue* value, const char* str, size_t len) {
     // check empty string
-    // TODO: why || len == 0
+    // zero length changes nothing
     assert(value != nullptr && (str != nullptr || len == 0));
     naive_free(value);
     // string assignment
@@ -599,9 +599,8 @@ static void naive_stringify_value(NaiveContext* context, const NaiveValue* value
             }
             PUTC(context, '}');
             break;
-            // TODO: raise error
         default:
-            assert(0 && "invalid type");
+            throw std::runtime_error("invalid type");
     }
 }
 
@@ -616,4 +615,84 @@ char* naive_stringify(const NaiveValue* value, size_t* len) {
         *len = context.top;
     PUTC(&context, '\0');
     return context.stack;
+}
+
+void naive_copy(NaiveValue* dst, const NaiveValue* src) {
+    assert(dst != nullptr && src != nullptr && src != dst);
+    switch (src->type) {
+        case NAIVE_STRING:
+            naive_set_string(dst, src->str, src->strlen);
+            break;
+        case NAIVE_ARRAY:
+            naive_free(dst);
+            dst->type = src->type;
+            dst->arrlen = src->arrlen;
+            dst->arr = static_cast<NaiveValue*>(malloc(src->arrlen * sizeof(NaiveValue)));
+            for (size_t i = 0; i < src->arrlen; ++i) {
+                naive_copy(&dst->arr[i], &src->arr[i]);
+            }
+            break; // TODO
+        case NAIVE_OBJECT:
+            naive_free(dst);
+            dst->type = src->type;
+            dst->maplen = src->maplen;
+            dst->map = static_cast<NaiveMember*>(malloc(src->maplen * sizeof(NaiveMember)));
+            for (size_t i = 0; i < src->maplen; ++i) {
+                dst->map[i].key = static_cast<char*>(malloc(src->map[i].keylen + 1));
+                memcpy(dst->map[i].key, src->map[i].key, src->map[i].keylen);
+                dst->map[i].key[src->map[i].keylen] = '\0';
+                dst->map[i].keylen = src->map[i].keylen;
+                naive_free(&dst->map[i].value);
+                naive_copy(&dst->map[i].value, &src->map[i].value);
+            }
+            break; // TODO
+        default:
+            naive_free(dst);
+            memcpy(dst, src, sizeof(NaiveValue));
+            break;
+    }
+}
+
+void naive_move(NaiveValue* dst, NaiveValue* src) {
+    assert(dst != nullptr && src != nullptr && src != dst);
+    naive_free(dst);
+    memcpy(dst, src, sizeof(NaiveValue));
+    naive_init(src);
+}
+
+void naive_swap(NaiveValue* lhs, NaiveValue* rhs) {
+    assert(lhs != nullptr && rhs != nullptr);
+    if (lhs != rhs) {
+        NaiveValue temp;
+        memcpy(&temp, lhs, sizeof(NaiveValue));
+        memcpy(lhs, rhs, sizeof(NaiveValue));
+        memcpy(rhs, &temp, sizeof(NaiveValue));
+    }
+}
+
+bool naive_is_equal(const NaiveValue* lhs, const NaiveValue* rhs) {
+    assert(lhs != nullptr && rhs != nullptr);
+    if (lhs->type != rhs->type) return false;
+    switch (lhs->type) {
+        case NAIVE_STRING:
+            return lhs->strlen == rhs->strlen && memcmp(lhs->str, rhs->str, lhs->strlen);
+        case NAIVE_NUMBER:
+            return lhs->number == rhs->number;
+        case NAIVE_ARRAY:
+            if (lhs->arrlen != rhs->arrlen) return false;
+            for (size_t i = 0; i < lhs->arrlen; i++) {
+                if (!naive_is_equal(&lhs->arr[i], &rhs->arr[i])) return false;
+            }
+            return true;
+        case NAIVE_OBJECT:
+            if (lhs->maplen != rhs->maplen) return false;
+            for (size_t i = 0; i < lhs->maplen; ++i) {
+                if (lhs->map[i].keylen != rhs->map[i].keylen) return false;
+                if (memcmp(lhs->map[i].key, rhs->map[i].key, lhs->map[i].keylen) != 0) return false;
+                if (!naive_is_equal(&lhs->map[i].value, &rhs->map[i].value)) return false;
+            }
+            return true;
+        default:
+            return true;
+    }
 }

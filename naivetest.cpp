@@ -458,6 +458,45 @@ static void test_stringify_object() {
             "{\"n\":null,\"f\":false,\"t\":true,\"i\":123,\"s\":\"abc\",\"a\":[1,2,3],\"o\":{\"1\":1,\"2\":2,\"3\":3}}");
 }
 
+static void test_copy() {
+    NaiveValue v1, v2;
+    naive_init(&v1);
+    naive_parse(&v1, "{\"t\":true,\"f\":false,\"n\":null,\"d\":1.5,\"a\":[1,2,3]}");
+    naive_init(&v2);
+    naive_copy(&v2, &v1);
+    EXPECT_TRUE(naive_is_equal(&v2, &v1));
+    naive_free(&v1);
+    naive_free(&v2);
+}
+
+static void test_move() {
+    NaiveValue v1, v2, v3;
+    naive_init(&v1);
+    naive_parse(&v1, "{\"t\":true,\"f\":false,\"n\":null,\"d\":1.5,\"a\":[1,2,3]}");
+    naive_init(&v2);
+    naive_copy(&v2, &v1);
+    naive_init(&v3);
+    naive_move(&v3, &v2);
+    EXPECT_EQ_INT(NAIVE_NULL, naive_get_type(&v2));
+    EXPECT_TRUE(naive_is_equal(&v3, &v1));
+    naive_free(&v1);
+    naive_free(&v2);
+    naive_free(&v3);
+}
+
+static void test_swap() {
+    NaiveValue v1, v2;
+    naive_init(&v1);
+    naive_init(&v2);
+    naive_set_string(&v1, "Hello",  5);
+    naive_set_string(&v2, "World!", 6);
+    naive_swap(&v1, &v2);
+    EXPECT_EQ_STRING("World!", naive_get_string(&v1), naive_get_string_length(&v1));
+    EXPECT_EQ_STRING("Hello",  naive_get_string(&v2), naive_get_string_length(&v2));
+    naive_free(&v1);
+    naive_free(&v2);
+}
+
 
 static void test_parse() {
     test_parse_null();
@@ -514,6 +553,9 @@ int main() {
     test_parse();
     test_access();
     test_stringify();
+    test_copy();
+    test_move();
+    test_swap();
     printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 #ifdef _WINDOWS
     _CrtDumpMemoryLeaks();

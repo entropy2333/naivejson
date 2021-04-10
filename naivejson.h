@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 
 const int NAIVE_STACK_INIT_SIZE = 256;
 const int NAIVE_PARSE_STRINGIFY_INI_SIZE = 256;
@@ -56,11 +57,11 @@ struct NaiveValue {
         };
         struct {
             NaiveValue* arr;
-            size_t arrlen; // element count
+            size_t arrlen, arrcap; // element count
         };
         struct {
             NaiveMember* map;
-            size_t maplen;
+            size_t maplen, mapcap;
         };
 
     };
@@ -68,7 +69,7 @@ struct NaiveValue {
 };
 
 struct NaiveMember {
-    char* key;
+    char* key = nullptr;
     NaiveValue value;
     size_t keylen;
 };
@@ -167,5 +168,13 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 // stringify interface
 char* naive_stringify(const NaiveValue* value, size_t* len);
 
+// assign interface
+void naive_copy(NaiveValue* dst, const NaiveValue* src);
+
+void naive_move(NaiveValue* dst, NaiveValue* src);
+
+void naive_swap(NaiveValue* lhs, NaiveValue* rhs);
+
+bool naive_is_equal(const NaiveValue* lhs, const NaiveValue* rhs);
 
 #endif //NAIVEJSON_H
