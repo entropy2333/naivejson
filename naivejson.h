@@ -16,6 +16,7 @@
 
 const int NAIVE_STACK_INIT_SIZE = 256;
 const int NAIVE_PARSE_STRINGIFY_INI_SIZE = 256;
+const size_t NAIVE_KEY_NOT_EXIST = static_cast<size_t>(-1);
 
 enum NaiveType {
     NAIVE_NULL = 0, //! null
@@ -157,7 +158,13 @@ size_t naive_get_array_size(const NaiveValue* value);
 
 NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index);
 
+size_t naive_get_array_capacity(const NaiveValue* value);
+
+void naive_set_array(NaiveValue* value, size_t capacity);
+
 size_t naive_get_object_size(const NaiveValue* value);
+
+size_t naive_get_object_capacity(const NaiveValue* value);
 
 const char* naive_get_object_key(const NaiveValue* value, size_t index);
 
@@ -165,10 +172,16 @@ size_t naive_get_object_key_length(const NaiveValue* value, size_t index);
 
 NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 
+NaiveValue* naive_get_object_value(const NaiveValue* value, const char* key, size_t keylen);
+
+size_t naive_get_object_key_index(const NaiveValue* value, const char* key, size_t keylen);
+
 // stringify interface
+static void naive_stringify_value(NaiveContext* context, const NaiveValue* value);
+
 char* naive_stringify(const NaiveValue* value, size_t* len);
 
-// assign interface
+// copy control and resource management
 void naive_copy(NaiveValue* dst, const NaiveValue* src);
 
 void naive_move(NaiveValue* dst, NaiveValue* src);

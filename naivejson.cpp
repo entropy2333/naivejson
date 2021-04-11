@@ -278,9 +278,7 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
     // meet end of array
     if (*context->json == ']') {
         context->json++;
-        value->type = NAIVE_ARRAY;
-        value->arrlen = 0;
-        value->arr = nullptr;
+        naive_set_array(value, 0);
         return NAIVE_PARSE_OK;
     }
     while (true) {
@@ -299,11 +297,10 @@ static int naive_parse_array(NaiveContext* context, NaiveValue* value) {
             naive_parse_whitespace(context);
         } else if (*context->json == ']') {
             context->json++;
-            value->type = NAIVE_ARRAY;
-            value->arrlen = arrlen;
+            naive_set_array(value, arrlen);
             size = arrlen * sizeof(NaiveValue);
-            value->arr = static_cast<NaiveValue*>(malloc(size));
             memcpy(value->arr, naive_context_pop(context, size), size);
+            value->arrlen = arrlen;
             return NAIVE_PARSE_OK;
         } else {
             ret = NAIVE_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
@@ -478,15 +475,35 @@ size_t naive_get_array_size(const NaiveValue* value) {
     return value->arrlen;
 }
 
+
 NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_ARRAY);
     assert(index < value->arrlen);
     return &value->arr[index];
 }
 
+size_t naive_get_array_capacity(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    return value->arrcap;
+}
+
+void naive_set_array(NaiveValue* value, size_t capacity) {
+    assert(value != nullptr);
+    naive_free(value);
+    value->type = NAIVE_ARRAY;
+    value->arrlen = 0;
+    value->arrcap = capacity;
+    value->arr = capacity > 0 ? static_cast<NaiveValue*>(malloc(capacity * sizeof(NaiveValue))) : nullptr;
+}
+
 size_t naive_get_object_size(const NaiveValue* value) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     return value->maplen;
+}
+
+size_t naive_get_object_capacity(const NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    return value->mapcap;
 }
 
 const char* naive_get_object_key(const NaiveValue* value, size_t index) {
@@ -502,9 +519,26 @@ size_t naive_get_object_key_length(const NaiveValue* value, size_t index) {
 }
 
 NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index) {
+    // get value by index
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     assert(index < value->maplen);
     return &value->map[index].value;
+}
+
+size_t naive_get_object_key_index(const NaiveValue* value, const char* key, size_t keylen) {
+    assert(value != nullptr && key != nullptr && value->type == NAIVE_OBJECT);
+    size_t i;
+    for (i = 0; i < value->maplen; ++i) {
+        if (value->map[i].keylen == keylen && memcmp(value->map[i].key, key, keylen) == 0)
+            return i;
+    }
+    return NAIVE_KEY_NOT_EXIST;
+}
+
+NaiveValue* naive_get_object_value(const NaiveValue* value, const char* key, size_t keylen) {
+    // get value by key
+    size_t index = naive_get_object_key_index(value, key, keylen);
+    return index == NAIVE_KEY_NOT_EXIST ? nullptr : &value->map[index].value;
 }
 
 static void naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
@@ -624,14 +658,12 @@ void naive_copy(NaiveValue* dst, const NaiveValue* src) {
             naive_set_string(dst, src->str, src->strlen);
             break;
         case NAIVE_ARRAY:
-            naive_free(dst);
-            dst->type = src->type;
-            dst->arrlen = src->arrlen;
-            dst->arr = static_cast<NaiveValue*>(malloc(src->arrlen * sizeof(NaiveValue)));
+            naive_set_array(dst, src->arrlen);
             for (size_t i = 0; i < src->arrlen; ++i) {
                 naive_copy(&dst->arr[i], &src->arr[i]);
             }
-            break; // TODO
+            dst->arrlen = src->arrlen;
+            break;
         case NAIVE_OBJECT:
             naive_free(dst);
             dst->type = src->type;
@@ -645,7 +677,7 @@ void naive_copy(NaiveValue* dst, const NaiveValue* src) {
                 naive_free(&dst->map[i].value);
                 naive_copy(&dst->map[i].value, &src->map[i].value);
             }
-            break; // TODO
+            break;
         default:
             naive_free(dst);
             memcpy(dst, src, sizeof(NaiveValue));
