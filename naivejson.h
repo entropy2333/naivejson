@@ -160,6 +160,14 @@ NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index);
 
 size_t naive_get_array_capacity(const NaiveValue* value);
 
+void naive_reserve_array(NaiveValue* value, size_t capacity);
+
+void naive_shrink_array(NaiveValue* value);
+
+NaiveValue* naive_pushback_array(NaiveValue* value);
+
+NaiveValue* naive_popback_array(NaiveValue* value);
+
 void naive_set_array(NaiveValue* value, size_t capacity);
 
 size_t naive_get_object_size(const NaiveValue* value);

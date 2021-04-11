@@ -496,6 +496,36 @@ void naive_set_array(NaiveValue* value, size_t capacity) {
     value->arr = capacity > 0 ? static_cast<NaiveValue*>(malloc(capacity * sizeof(NaiveValue))) : nullptr;
 }
 
+void naive_reserve_array(NaiveValue* value, size_t capacity) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    if (value->arrcap < capacity) {
+        value->arrcap = capacity;
+        value->arr = static_cast<NaiveValue*>(realloc(value->arr, capacity * sizeof(NaiveValue)));
+    }
+}
+
+void naive_shrink_array(NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    if (value->arrcap > value->arrlen) {
+        value->arrcap = value->arrlen;
+        value->arr = static_cast<NaiveValue*>(realloc(value->arr, value->arrlen * sizeof(NaiveValue)));
+    }
+}
+
+NaiveValue* naive_pushback_array(NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    if (value->arrlen == value->arrcap) {
+        naive_reserve_array(value, value->arrcap == 0 ? 1 : value->arrcap * 2);
+    }
+    naive_init(&value->arr[value->arrlen]);
+    return &value->arr[value->arrlen++];
+}
+
+NaiveValue* naive_popback_array(NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY && value->arrlen > 0);
+    naive_free(&value->arr[--value->arrlen]);
+}
+
 size_t naive_get_object_size(const NaiveValue* value) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     return value->maplen;
