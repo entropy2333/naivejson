@@ -5,6 +5,7 @@ rapidjson/
 testRapidJson.cpp
 cmake-build-debug/
 .idea
+test.cpp
 
 # Prerequisites
 *.d

@@ -416,6 +416,85 @@ static void test_access_string() {
     naive_free(&v);
 }
 
+static void test_access_array() {
+    NaiveValue a, e;
+    size_t i, j;
+
+    naive_init(&a);
+
+    for (j = 0; j <= 5; j += 5) {
+        naive_set_array(&a, j);
+        EXPECT_EQ_SIZE_T(0, naive_get_array_size(&a));
+        EXPECT_EQ_SIZE_T(j, naive_get_array_capacity(&a));
+        for (i = 0; i < 10; i++) {
+            naive_init(&e);
+            naive_set_number(&e, i);
+            naive_move(naive_pushback_array(&a), &e);
+            naive_free(&e);
+        }
+
+        EXPECT_EQ_SIZE_T(10, naive_get_array_size(&a));
+        for (i = 0; i < 10; i++)
+            EXPECT_EQ_DOUBLE((double)i, naive_get_number(naive_get_array_element(&a, i)));
+    }
+
+    naive_popback_array(&a);
+    EXPECT_EQ_SIZE_T(9, naive_get_array_size(&a));
+    for (i = 0; i < 9; i++)
+        EXPECT_EQ_DOUBLE((double)i, naive_get_number(naive_get_array_element(&a, i)));
+
+    naive_erase_array(&a, 4, 0);
+    EXPECT_EQ_SIZE_T(9, naive_get_array_size(&a));
+    for (i = 0; i < 9; i++)
+        EXPECT_EQ_DOUBLE((double)i, naive_get_number(naive_get_array_element(&a, i)));
+
+    naive_erase_array(&a, 8, 1);
+    EXPECT_EQ_SIZE_T(8, naive_get_array_size(&a));
+    for (i = 0; i < 8; i++)
+        EXPECT_EQ_DOUBLE((double)i, naive_get_number(naive_get_array_element(&a, i)));
+
+    naive_erase_array(&a, 0, 2);
+    EXPECT_EQ_SIZE_T(6, naive_get_array_size(&a));
+    for (i = 0; i < 6; i++)
+        EXPECT_EQ_DOUBLE((double)i + 2, naive_get_number(naive_get_array_element(&a, i)));
+
+#if 1
+    for (i = 0; i < 2; i++) {
+        naive_init(&e);
+        naive_set_number(&e, i);
+        naive_move(naive_insert_array(&a, i), &e);
+        naive_free(&e);
+    }
+#endif
+
+#if 1
+
+    EXPECT_EQ_SIZE_T(8, naive_get_array_size(&a));
+    for (i = 0; i < 8; i++)
+        EXPECT_EQ_DOUBLE((double)i, naive_get_number(naive_get_array_element(&a, i)));
+
+    EXPECT_TRUE(naive_get_array_capacity(&a) > 8);
+    naive_shrink_array(&a);
+    EXPECT_EQ_SIZE_T(8, naive_get_array_capacity(&a));
+    EXPECT_EQ_SIZE_T(8, naive_get_array_size(&a));
+    for (i = 0; i < 8; i++)
+        EXPECT_EQ_DOUBLE((double)i, naive_get_number(naive_get_array_element(&a, i)));
+
+    naive_set_string(&e, "Hello", 5);
+    naive_move(naive_pushback_array(&a), &e);     /* Test if element is freed */
+    naive_free(&e);
+
+    i = naive_get_array_capacity(&a);
+    naive_clear_array(&a);
+    EXPECT_EQ_SIZE_T(0, naive_get_array_size(&a));
+    EXPECT_EQ_SIZE_T(i, naive_get_array_capacity(&a));   /* capacity remains unchanged */
+    naive_shrink_array(&a);
+    EXPECT_EQ_SIZE_T(0, naive_get_array_capacity(&a));
+#endif
+    naive_free(&a);
+
+}
+
 static void test_stringify_number() {
     TEST_ROUNDTRIP("0");
     TEST_ROUNDTRIP("-0");
@@ -528,6 +607,7 @@ static void test_access() {
     test_access_bool();
     test_access_number();
     test_access_string();
+    test_access_array();
 }
 
 static void test_stringify() {

@@ -160,15 +160,21 @@ NaiveValue* naive_get_array_element(const NaiveValue* value, size_t index);
 
 size_t naive_get_array_capacity(const NaiveValue* value);
 
+void naive_set_array(NaiveValue* value, size_t capacity);
+
 void naive_reserve_array(NaiveValue* value, size_t capacity);
 
 void naive_shrink_array(NaiveValue* value);
 
 NaiveValue* naive_pushback_array(NaiveValue* value);
 
-NaiveValue* naive_popback_array(NaiveValue* value);
+void naive_popback_array(NaiveValue* value);
 
-void naive_set_array(NaiveValue* value, size_t capacity);
+NaiveValue* naive_insert_array(NaiveValue* value, size_t index);
+
+void naive_erase_array(NaiveValue* value, size_t index, size_t count);
+
+void naive_clear_array(NaiveValue* value);
 
 size_t naive_get_object_size(const NaiveValue* value);
 
@@ -183,6 +189,8 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, size_t index);
 NaiveValue* naive_get_object_value(const NaiveValue* value, const char* key, size_t keylen);
 
 size_t naive_get_object_key_index(const NaiveValue* value, const char* key, size_t keylen);
+
+// TODO object interface
 
 // stringify interface
 static void naive_stringify_value(NaiveContext* context, const NaiveValue* value);

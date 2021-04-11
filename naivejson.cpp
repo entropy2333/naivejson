@@ -521,9 +521,39 @@ NaiveValue* naive_pushback_array(NaiveValue* value) {
     return &value->arr[value->arrlen++];
 }
 
-NaiveValue* naive_popback_array(NaiveValue* value) {
+void naive_popback_array(NaiveValue* value) {
     assert(value != nullptr && value->type == NAIVE_ARRAY && value->arrlen > 0);
     naive_free(&value->arr[--value->arrlen]);
+}
+
+NaiveValue* naive_insert_array(NaiveValue* value, size_t index) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY && index < value->arrlen);
+    if (value->arrlen == value->arrcap) {
+        naive_reserve_array(value, value->arrcap == 0 ? 1 : value->arrcap * 2);
+    }
+    memmove(value->arr + index + 1, value->arr + index, (value->arrlen - index) * sizeof(NaiveValue));
+    value->arrlen++;
+    naive_init(&value->arr[index]);
+    return &value->arr[index];
+}
+
+void naive_erase_array(NaiveValue* value, size_t index, size_t count) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY);
+    assert(value->arrlen > 0 && index + count <= value->arrlen);
+    if (count > 0) {
+        memmove(value->arr + index, value->arr + index + count, (value->arrlen - index - count) * sizeof(NaiveValue));
+        for (size_t i = 0; i < count; ++i) {
+            naive_popback_array(value);
+        }
+    }
+}
+
+void naive_clear_array(NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_ARRAY && value->arrlen > 0);
+    for (size_t i = 0; i < value->arrlen; ++i) {
+        naive_free(&value->arr[i]);
+    }
+    value->arrlen = 0;
 }
 
 size_t naive_get_object_size(const NaiveValue* value) {
