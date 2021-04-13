@@ -70,7 +70,7 @@ struct NaiveValue {
 };
 
 struct NaiveMember {
-    char* key = nullptr;
+    char* key;
     NaiveValue value;
     size_t keylen;
 };
@@ -191,6 +191,17 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, const char* key, siz
 size_t naive_get_object_key_index(const NaiveValue* value, const char* key, size_t keylen);
 
 // TODO object interface
+void naive_set_object(NaiveValue* value, size_t capacity);
+
+void naive_reserve_object(NaiveValue* value, size_t capacity);
+
+void naive_shrink_object(NaiveValue* value);
+
+void naive_clear_object(NaiveValue* value);
+
+NaiveValue* naive_set_object_value(NaiveValue* value, const char* key, size_t keylen);
+
+void naive_remove_object_value(NaiveValue* value, size_t index);
 
 // stringify interface
 static void naive_stringify_value(NaiveContext* context, const NaiveValue* value);

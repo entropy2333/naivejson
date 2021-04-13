@@ -323,9 +323,7 @@ static int naive_parse_object(NaiveContext* context, NaiveValue* value) {
     // meet end of object
     if (*context->json == '}') {
         context->json++;
-        value->type = NAIVE_OBJECT;
-        value->maplen = 0;
-        value->map = nullptr;
+        naive_set_object(value, 0);
         return NAIVE_PARSE_OK;
     }
     NaiveMember member;
@@ -371,11 +369,10 @@ static int naive_parse_object(NaiveContext* context, NaiveValue* value) {
             naive_parse_whitespace(context);
         } else if (*context->json == '}') {
             context->json++;
-            value->type = NAIVE_OBJECT;
-            value->maplen = maplen;
+            naive_set_object(value, maplen);
             size = maplen * sizeof(NaiveMember);
-            value->map = static_cast<NaiveMember*>(malloc(size));
             memcpy(value->map, naive_context_pop(context, size), size);
+            value->maplen = maplen;
             return NAIVE_PARSE_OK;
         } else {
             ret = NAIVE_PARSE_MISS_COMMA_OR_CURLY_BRACKET;
@@ -601,6 +598,71 @@ NaiveValue* naive_get_object_value(const NaiveValue* value, const char* key, siz
     return index == NAIVE_KEY_NOT_EXIST ? nullptr : &value->map[index].value;
 }
 
+void naive_set_object(NaiveValue* value, size_t capacity) {
+    assert(value != nullptr);
+    naive_free(value);
+    value->type = NAIVE_OBJECT;
+    value->maplen = 0;
+    value->mapcap = capacity;
+    value->map = capacity > 0 ? static_cast<NaiveMember*>(malloc(capacity * sizeof(NaiveMember))) : nullptr;
+}
+
+void naive_reserve_object(NaiveValue* value, size_t capacity) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    if (value->mapcap < capacity) {
+        value->mapcap = capacity;
+        value->map = static_cast<NaiveMember*>(realloc(value->map, capacity * sizeof(NaiveMember)));
+    }
+}
+
+void naive_shrink_object(NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    if (value->mapcap > value->maplen) {
+        value->mapcap = value->maplen;
+        value->map = static_cast<NaiveMember*>(realloc(value->map, value->maplen * sizeof(NaiveMember)));
+    }
+}
+
+void naive_clear_object(NaiveValue* value) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT && value->maplen > 0);
+    for (size_t i = 0; i < value->maplen; i++) {
+        free(value->map[i].key);
+        naive_free(&value->map[i].value);
+    }
+    value->maplen = 0;
+}
+
+// FIXME
+NaiveValue* naive_set_object_value(NaiveValue* value, const char* key, size_t keylen) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT && key != nullptr);
+    size_t index = naive_get_object_key_index(value, key, keylen);
+    // return if exist
+    if (index != NAIVE_KEY_NOT_EXIST)
+        return &value->map[index].value;
+    if (value->maplen == value->mapcap) {
+        naive_reserve_object(value, value->mapcap == 0 ? 1 : value->mapcap * 2);
+    }
+    index = value->maplen;
+    value->map[index].key = static_cast<char*>(malloc(keylen + 1));
+    memcpy(value->map[index].key, key, keylen);
+    value->map[index].key[keylen] = '\0';
+    naive_init(&value->map[index].value);
+    value->map[index].keylen = keylen;
+    value->maplen++;
+    return &value->map[index].value;
+}
+
+// FIXME
+void naive_remove_object_value(NaiveValue* value, size_t index) {
+    assert(value != nullptr && value->type == NAIVE_OBJECT);
+    assert(value->maplen > 0 && index < value->maplen);
+    if (index + 1 < value->maplen) {
+        memmove(value->map + index, value->map + index + 1, (value->maplen - index - 1) * sizeof(NaiveMember));
+    }
+    free(value->map[--value->maplen].key);
+    naive_free(&value->map[value->maplen].value);
+}
+
 static void naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
     static const char hex_digits[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
     size_t size;
@@ -726,9 +788,7 @@ void naive_copy(NaiveValue* dst, const NaiveValue* src) {
             break;
         case NAIVE_OBJECT:
             naive_free(dst);
-            dst->type = src->type;
-            dst->maplen = src->maplen;
-            dst->map = static_cast<NaiveMember*>(malloc(src->maplen * sizeof(NaiveMember)));
+            naive_set_object(dst, src->maplen);
             for (size_t i = 0; i < src->maplen; ++i) {
                 dst->map[i].key = static_cast<char*>(malloc(src->map[i].keylen + 1));
                 memcpy(dst->map[i].key, src->map[i].key, src->map[i].keylen);
@@ -737,6 +797,7 @@ void naive_copy(NaiveValue* dst, const NaiveValue* src) {
                 naive_free(&dst->map[i].value);
                 naive_copy(&dst->map[i].value, &src->map[i].value);
             }
+            dst->maplen = src->maplen;
             break;
         default:
             naive_free(dst);
@@ -767,7 +828,7 @@ bool naive_is_equal(const NaiveValue* lhs, const NaiveValue* rhs) {
     if (lhs->type != rhs->type) return false;
     switch (lhs->type) {
         case NAIVE_STRING:
-            return lhs->strlen == rhs->strlen && memcmp(lhs->str, rhs->str, lhs->strlen);
+            return lhs->strlen == rhs->strlen && memcmp(lhs->str, rhs->str, lhs->strlen) == 0;
         case NAIVE_NUMBER:
             return lhs->number == rhs->number;
         case NAIVE_ARRAY:
@@ -777,6 +838,7 @@ bool naive_is_equal(const NaiveValue* lhs, const NaiveValue* rhs) {
             }
             return true;
         case NAIVE_OBJECT:
+            // FIXME: order can be unequal
             if (lhs->maplen != rhs->maplen) return false;
             for (size_t i = 0; i < lhs->maplen; ++i) {
                 if (lhs->map[i].keylen != rhs->map[i].keylen) return false;

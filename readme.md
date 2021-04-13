@@ -1,13 +1,14 @@
 # NaiveJson
 
-naive json parser implemented with C++
+naive json parser implemented with C/C++
 
 ## Motivation
 
-- learn and practice C++
+- learn and practice C/C++
 - learn about Test-Driven Development (TDD)
 - implement of recursive descent parser
 - how to design API
+- try OOP
 
 ## Todo
 
