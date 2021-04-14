@@ -98,7 +98,7 @@ void naive_free(NaiveValue* value) {
 static int naive_parse_literal(NaiveContext* context, NaiveValue* value, const char* literal, NaiveType type) {
     // compare with null、true、false
     size_t i = 0;
-    // TODO: why need EXPECT?
+    // TODO: remove EXPECT?
     EXPECT(context, literal[0]);
     // compared with literal value by character
     for (i = 0; literal[i + 1] != '\0'; ++i) {
@@ -656,11 +656,15 @@ NaiveValue* naive_set_object_value(NaiveValue* value, const char* key, size_t ke
 void naive_remove_object_value(NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     assert(value->maplen > 0 && index < value->maplen);
-    if (index + 1 < value->maplen) {
-        memmove(value->map + index, value->map + index + 1, (value->maplen - index - 1) * sizeof(NaiveMember));
+        // FIX DONE memmove share the same address of char* -> memory leakage
+    for (size_t i = index; i < value->maplen - 1; i++) {
+        memcpy(value->map[i].key, value->map[i + 1].key, value->map[i + 1].keylen);
+        memcpy(&value->map[i].value, &value->map[i + 1].value, sizeof(NaiveValue));
+        value->map[i].keylen = value->map[i + 1].keylen;
     }
-    free(value->map[--value->maplen].key);
-    naive_free(&value->map[value->maplen].value);
+    free(value->map[value->maplen - 1].key);
+    naive_free(&value->map[value->maplen - 1].value);
+    value->maplen--;
 }
 
 static void naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
