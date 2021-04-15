@@ -1,4 +1,4 @@
-# NaiveJson
+# naivejson
 
 naive json parser implemented with C/C++
 

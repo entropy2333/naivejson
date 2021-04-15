@@ -656,15 +656,15 @@ NaiveValue* naive_set_object_value(NaiveValue* value, const char* key, size_t ke
 void naive_remove_object_value(NaiveValue* value, size_t index) {
     assert(value != nullptr && value->type == NAIVE_OBJECT);
     assert(value->maplen > 0 && index < value->maplen);
-        // FIX DONE memmove share the same address of char* -> memory leakage
-    for (size_t i = index; i < value->maplen - 1; i++) {
-        memcpy(value->map[i].key, value->map[i + 1].key, value->map[i + 1].keylen);
-        memcpy(&value->map[i].value, &value->map[i + 1].value, sizeof(NaiveValue));
-        value->map[i].keylen = value->map[i + 1].keylen;
+    // swap with the last member
+    // FIX DONE memmove share the same address of char* -> memory leakage
+    if (index != value->maplen - 1) {
+        memcpy(value->map[index].key, value->map[value->maplen - 1].key, value->map[value->maplen - 1].keylen);
+        memcpy(&value->map[index].value, &value->map[value->maplen - 1].value, sizeof(NaiveValue));
+        value->map[index].keylen = value->map[value->maplen - 1].keylen;
     }
-    free(value->map[value->maplen - 1].key);
-    naive_free(&value->map[value->maplen - 1].value);
-    value->maplen--;
+    free(value->map[--value->maplen].key);
+    naive_free(&value->map[value->maplen].value);
 }
 
 static void naive_stringify_string(NaiveContext* context, const char* str, size_t len) {
@@ -844,10 +844,11 @@ bool naive_is_equal(const NaiveValue* lhs, const NaiveValue* rhs) {
         case NAIVE_OBJECT:
             // FIXME: order can be unequal
             if (lhs->maplen != rhs->maplen) return false;
+            NaiveValue* value;
             for (size_t i = 0; i < lhs->maplen; ++i) {
-                if (lhs->map[i].keylen != rhs->map[i].keylen) return false;
-                if (memcmp(lhs->map[i].key, rhs->map[i].key, lhs->map[i].keylen) != 0) return false;
-                if (!naive_is_equal(&lhs->map[i].value, &rhs->map[i].value)) return false;
+                value = naive_get_object_value(rhs, lhs->map[i].key, lhs->map[i].keylen);
+                if (value == nullptr) return false;
+                if (!naive_is_equal(&lhs->map[i].value, value)) return false;
             }
             return true;
         default:
